@@ -8,6 +8,7 @@ from os.path import isfile, join
 
 
 def readVideo(videoFile):
+    
     cap = cv2.VideoCapture(videoFile)
     i=0
     while(cap.isOpened()):
@@ -20,7 +21,7 @@ def readVideo(videoFile):
             firstImg = currentImg
             #cv2.imshow("img1",currentImg)
         
-        processImg.main(firstImg,currentImg)
+        difference = processImg.main(firstImg,currentImg)
             
         if ret == 0: #False if video is finished
             cap.release()
@@ -28,6 +29,7 @@ def readVideo(videoFile):
             
         #cv2.imshow("frame",gray)
         i+=1
+        return difference
 
 def main():
     myPath = os.getcwd()+'\\videoFile'
