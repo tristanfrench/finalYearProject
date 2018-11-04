@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import csv
 import time
 import processImg 
 import os
@@ -41,7 +42,7 @@ def readVideo(mainFolder,videoFolder,vid,write=False):
             if it in differenceArgs:
                 if ret != 0:
                     currentImg = cv2.cvtColor(currentFrame, cv2.COLOR_BGR2GRAY)
-                    outfile = "%s/extractedVideos/%s_%s.jpg" %(mainFolder,vid[:-4],it)
+                    outfile = "%s/extractedImages/%s_%s.jpg" %(mainFolder,vid[:-4],it)
                     print(outfile)
                     cv2.imwrite(outfile,currentImg)
             if ret == 0: # 0 if video is finished
@@ -52,19 +53,33 @@ def readVideo(mainFolder,videoFolder,vid,write=False):
     return differencePerFrame
     
 
+def readCsv():
+    with open('video_targets.csv', mode='r') as csv_file:
+        csv_reader = csv.DictReader(csv_file)
+        line_count = 0
+        for row in csv_reader:
+            #if line_count == 0:
+                #print(f'Column names are {", ".join(row)}')
+                #line_count += 1
+            #print(row["pose_1"],row["pose_6"])
+            line_count += 1
+        #print(f'Processed {line_count} lines.')
+
+
+
 
 def main():
     mainFolder = 'collectCircleTapRand_08161204'
     videoDir = mainFolder+'/videos/'
     myPath = os.getcwd()+'/'+videoDir
     allVideos = [f for f in listdir(myPath) if isfile(join(myPath, f))]
-    for vid in allVideos[0:2]:
-        result = readVideo(mainFolder,videoDir,vid,write=True)
+
+    #for vid in allVideos[0:2]:
+        #result = readVideo(mainFolder,videoDir,vid,write=True)
+    readCsv()
     
 
 if __name__ == '__main__':
     main()
 
 
-
-#cv2.destroyAllWindows()
