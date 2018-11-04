@@ -7,9 +7,9 @@ from os import listdir
 from os.path import isfile, join
 
 
-def readVideo(videoFile,write=False):
-    
-    cap = cv2.VideoCapture(videoFile)
+def readVideo(mainFolder,videoFolder,singleVideo,write=False):
+    videoPath = videoFolder+singleVideo
+    cap = cv2.VideoCapture(videoPath)
     i=0
     differencePerFrame = []
     while(cap.isOpened()):
@@ -35,13 +35,13 @@ def readVideo(videoFile,write=False):
     if write == True:
         it=0
         differenceArgs = processImg.getArgmax(differencePerFrame)
-        cap = cv2.VideoCapture(videoFile)
+        cap = cv2.VideoCapture(videoPath)
         while(cap.isOpened()):
             ret, currentFrame = cap.read()
             if it in differenceArgs:
                 if ret != 0:
                     currentImg = cv2.cvtColor(currentFrame, cv2.COLOR_BGR2GRAY)
-                    outfile = "%s_%s.jpg" %(videoFile,it)
+                    outfile = "%s/extractedVideos/%s_%s.jpg" %(mainFolder,singleVideo,it)
                     print(outfile)
                     cv2.imwrite(outfile,currentImg)
             if ret == 0: # 0 if video is finished
@@ -54,11 +54,12 @@ def readVideo(videoFile,write=False):
 
 
 def main():
-    myPath = os.getcwd()+'\\videoFile'
+    mainFolder = 'collectCircleTapRand_08161204'
+    videoDir = mainFolder+'/videos/'
+    myPath = os.getcwd()+'/'+videoDir
     allVideos = [f for f in listdir(myPath) if isfile(join(myPath, f))]
-    print(allVideos[0:2])
-    #result = readVideo("collectCircleTapRand_09041010/video_3.mp4",write=False)
-    #print(result)
+    for vid in allVideos[0:2]:
+        result = readVideo(mainFolder,videoDir,vid,write=True)
     
 
 if __name__ == '__main__':
