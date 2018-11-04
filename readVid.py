@@ -7,8 +7,8 @@ from os import listdir
 from os.path import isfile, join
 
 
-def readVideo(mainFolder,videoFolder,singleVideo,write=False):
-    videoPath = videoFolder+singleVideo
+def readVideo(mainFolder,videoFolder,vid,write=False):
+    videoPath = videoFolder+vid
     cap = cv2.VideoCapture(videoPath)
     i=0
     differencePerFrame = []
@@ -41,7 +41,7 @@ def readVideo(mainFolder,videoFolder,singleVideo,write=False):
             if it in differenceArgs:
                 if ret != 0:
                     currentImg = cv2.cvtColor(currentFrame, cv2.COLOR_BGR2GRAY)
-                    outfile = "%s/extractedVideos/%s_%s.jpg" %(mainFolder,singleVideo,it)
+                    outfile = "%s/extractedVideos/%s_%s.jpg" %(mainFolder,vid[:-4],it)
                     print(outfile)
                     cv2.imwrite(outfile,currentImg)
             if ret == 0: # 0 if video is finished
