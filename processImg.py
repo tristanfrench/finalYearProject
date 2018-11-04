@@ -17,11 +17,13 @@ def main(firstImg,currentImg):
     #cv2.waitKey(0)
     return difference
 
-def imgProcessing(img):
-    
-
-    
-    return img
+def getArgmax(x):
+    '''
+    Returs list of argmax of interest
+    '''
+    arg = np.argmax(x)
+    result = [arg-2,arg-1,arg,arg+1,arg+2]
+    return result
 
 
 
