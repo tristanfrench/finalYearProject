@@ -17,31 +17,31 @@ def readVideo(videoFile):
         
         if ret != 0:
             currentImg = cv2.cvtColor(currentFrame, cv2.COLOR_BGR2GRAY)#grayscale
+            cv2.imshow('cf',currentImg)
+            cv2.waitKey()
         if i == 0:
             firstImg = currentImg
-            #cv2.imshow("img1",currentImg)
+            
         
         difference = processImg.main(firstImg,currentImg)
-            
+        print(difference)
         if ret == 0: #False if video is finished
             cap.release()
             break
             
-        #cv2.imshow("frame",gray)
+        
         i+=1
-        return difference
+        
 
 def main():
     myPath = os.getcwd()+'\\videoFile'
     allVideos = [f for f in listdir(myPath) if isfile(join(myPath, f))]
-    print(allVideos[0])
-    #readVideo("collectCircleTapRand_09041010/video_1.mp4")
+    #print(allVideos[0])
+    result = readVideo("collectCircleTapRand_09041010/video_1.mp4")
+    
 
 if __name__ == '__main__':
     main()
-
-    
-
 
 
 
