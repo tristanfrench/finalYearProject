@@ -1,15 +1,15 @@
 import tensorflow as tf
-import os
-import os.path
 import numpy as np
 import pandas as pd
+import os
+import os.path
 from os import listdir
 from os.path import isfile, join
 
 FLAGS = tf.app.flags.FLAGS
 
 # Optimisation hyperparameters
-tf.app.flags.DEFINE_integer('batch-size', 4, 'Number of examples per mini-batch (default: %(default)d)')
+tf.app.flags.DEFINE_integer('batch-size', 2, 'Number of examples per mini-batch (default: %(default)d)')
 tf.app.flags.DEFINE_float('learning-rate', 1e-4, 'Learning rate (default: %(default)d)')
 tf.app.flags.DEFINE_integer('img-width', 640, 'Image width (default: %(default)d)')
 tf.app.flags.DEFINE_integer('img-height', 480, 'Image height (default: %(default)d)')
@@ -17,11 +17,7 @@ tf.app.flags.DEFINE_integer('img-channels', 1, 'Image channels (default: %(defau
 tf.app.flags.DEFINE_integer('num-classes', 1, 'Number of classes (default: %(default)d)')
 
     
-def parse_function(filename, label):
-  image_string = tf.read_file(filename)
-  image_decoded = tf.image.decode_jpeg(image_string)
-  #image_resized = tf.image.resize_images(image_decoded, [28, 28])
-  return image_decoded, label
+
 
 def readCsv(csv_file):
     data = pd.read_csv(csv_file)
@@ -75,7 +71,7 @@ def deepnn(x):
         h_final = tf.reshape(h_pool2, [-1,4096])
         
         w_1_dim = 1024
-        w_y_dim = 10
+        w_y_dim = 1
 
         w_1 = tf.Variable(tf.truncated_normal([4096, w_1_dim], stddev=0.1))
         b_1 = tf.Variable(tf.constant(0.1, shape=[w_1_dim]))
@@ -85,88 +81,108 @@ def deepnn(x):
         h_fcy = tf.matmul(h_fc1, w_y) + b_y 
         return h_fcy
 
-def main(_):
-        sess = tf.Session()
-        data_labels = readCsv("video_targets_minus1.csv")
-        df = data_labels[['pose_1','pose_6']]
-        df.columns =['r','theta']
+def image_preprocess():
+    data_labels = readCsv("video_targets.csv")#_minus1.csv")
+    df = data_labels[['pose_1','pose_6']]
+    df.columns =['r','theta']
 
-        a=[]
-        n_duplicates = 5
-        for index, row in df.iterrows():
-            for i in range(0,n_duplicates):
-                a.append([row['r'],row['theta']])
-        
-        new_df = pd.DataFrame(a,columns=['r','theta'])
-        np.random.seed(0)
-        #data = data.sample(frac=1).reset_index(drop=True)#shuffles data but keeps indices in place
-        #print(new_df['r'][0])
-        mainDir = 'collectCircleTapRand_08161204'
-        imageDir = mainDir+'/extractedImages/'
-        myPath = os.getcwd()+'/'+imageDir
-        allImages = [f for f in listdir(myPath) if isfile(join(myPath, f))]
-        dataset = tf.data.Dataset.from_tensor_slices((allImages, new_df['r']))
-        dataset = dataset.map(parse_function)
-        #x:_ondisk_parse_(x)).shuffle(True).batch(batch_size)
-        batched_dataset = dataset.batch(4)
-
-        iterator = batched_dataset.make_one_shot_iterator()
-        next_element = iterator.get_next()
-        print(next_element)
-        print(next_element)
-
-
-
-        with tf.Session() as sess:
-                sess.run(tf.global_variables_initializer())
-                #sess.run(lol)
-        print('done')
+    a=[]
+    n_duplicates = 5
+    for index, row in df.iterrows():
+        for i in range(0,n_duplicates):
+            a.append([row['r'],row['theta']])       
+    new_df = pd.DataFrame(a,columns=['r','theta'])
+    np.random.seed(0)
+    #data = data.sample(frac=1).reset_index(drop=True)#shuffles data but keeps indices in place
+    mainDir = 'collectCircleTapRand_08161204'
+    imageDir = mainDir+'/extractedImages/'
+    #myPath = os.getcwd()+'/'+imageDir
+    allImages = ['imageSample/'+f for f in listdir(os.getcwd()+'/'+'imageSample'+'/') if isfile(join(os.getcwd()+'/'+'imageSample'+'/', f))]
+    new_df = np.transpose(new_df.as_matrix(columns=new_df.columns[1:]))
+    return allImages,new_df
+    
+def parse_function(filename, label):
+    image_string = tf.read_file(filename)
+    image_decoded = tf.image.decode_jpeg(image_string, channels=1)
+    image = tf.cast(image_decoded, tf.float32)
+    return image, label
+def get_images(filenames,labels,batch_size):
+    labels = labels[0][:len(filenames)]
+    filenames = tf.constant(filenames)
+    labels = tf.constant(labels)
+    dataset = tf.contrib.data.Dataset.from_tensor_slices((filenames,labels))
+    dataset = dataset.map(parse_function)
+    batched_dataset = dataset.batch(batch_size)
+    iterator = batched_dataset.make_one_shot_iterator()
+    return iterator
 
 def main(_):
     tf.reset_default_graph()
-
-    # Import data
-    #cifar = cf.cifar10(batchSize=FLAGS.batch_size, downloadDir=FLAGS.data_dir)
+    sess = tf.Session()
+    images,labels = image_preprocess()
+    
     with tf.variable_scope('inputs'):
         # Create the model
         x = tf.placeholder(tf.float32, [None, FLAGS.img_width * FLAGS.img_height * FLAGS.img_channels])
         y_ = tf.placeholder(tf.float32, [None, FLAGS.num_classes])
-
     # Build the graph for the deep net
-    y_conv, img_summary = deepnn(x)
+    y_conv = deepnn(x)
 
     with tf.variable_scope('x_entropy'):
-        cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_conv))
+            cross_entropy = tf.losses.mean_squared_error(labels = y_,predictions = y_conv)
         #change to mean squared
     
     # Define your AdamOptimiser, using FLAGS.learning_rate to minimixe the loss function
     #optimiser = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(cross_entropy)
-    global_step = tf.Variable(0, trainable=False)
-    learning_rate = tf.train.exponential_decay(FLAGS.learning_rate,global_step ,1000,0.8)
-    optimiser = tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy,global_step)
+    #global_step = tf.Variable(0, trainable=False)
+    #learning_rate = tf.train.exponential_decay(FLAGS.learning_rate,global_step ,1000,0.8)
+    #optimiser = tf.train.AdamOptimizer(learning_rate).minimize(cross_entropy,global_step)
 
     #calculate the prediction and the accuracy
     #correct_prediction = tf.placeholder(tf.float32, [1])
     #accuracy = tf.Variable(tf.float32, [1])
-    accuracy = tf.equal(tf.argmax(y_conv,1),tf.argmax(y_,1))
-    accuracy = tf.reduce_mean(tf.cast(accuracy, tf.float32))
+    #accuracy = tf.equal(tf.argmax(y_conv,1),tf.argmax(y_,1))
+    #accuracy = tf.reduce_mean(tf.cast(accuracy, tf.float32))
 
-    loss_summary = tf.summary.scalar('Loss', cross_entropy)
-    acc_summary = tf.summary.scalar('Accuracy', accuracy)
+    #loss_summary = tf.summary.scalar('Loss', cross_entropy)
+    #acc_summary = tf.summary.scalar('Accuracy', accuracy)
 
     # summaries for TensorBoard visualisation
-    validation_summary = tf.summary.merge([img_summary, acc_summary])
-    training_summary = tf.summary.merge([img_summary, loss_summary])
-    test_summary = tf.summary.merge([img_summary, acc_summary])
+    #validation_summary = tf.summary.merge([img_summary, acc_summary])
+    #training_summary = tf.summary.merge([img_summary, loss_summary])
+    #test_summary = tf.summary.merge([img_summary, acc_summary])
 
     # saver for checkpoints
-    saver = tf.train.Saver(tf.global_variables(), max_to_keep=1)
+    #saver = tf.train.Saver(tf.global_variables(), max_to_keep=1)
+    a = get_images(images,labels,FLAGS.batch_size)
+    with tf.Session() as sess:
+        
+        sess.run(tf.global_variables_initializer())
+        [images, labels] = a.get_next()
+        sess.run([images, labels])
+        #sess.run([optimiser], feed_dict={x: images, y_: labels})
+            
+           
+        
+        #print(np.shape(trainImages))
+        #sess.run(lol)
+    print('done') 
+        
+
+    
+    
+    # Import data
+    #cifar = cf.cifar10(batchSize=FLAGS.batch_size, downloadDir=FLAGS.data_dir)
+    '''
+
+
+    
+
+    
     
     with tf.Session() as sess:
         summary_writer = tf.summary.FileWriter(run_log_dir + '_train', sess.graph)
         summary_writer_validation = tf.summary.FileWriter(run_log_dir +'_validate', sess.graph)
-
-        sess.run(tf.global_variables_initializer())
 
         # Training and validation
         for step in range(FLAGS.max_steps):
@@ -211,6 +227,7 @@ def main(_):
 
         test_accuracy = test_accuracy / batch_count
         print('test set: accuracy on test set: %0.3f' % test_accuracy)
+        '''
 
 if __name__ == '__main__':
     tf.app.run(main=main)
