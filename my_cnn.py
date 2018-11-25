@@ -18,8 +18,8 @@ class Dataset:
         self.batch_size = batch_size
 
     def get_next_batch(self):
-        #if self.batch_count >
         batch = self.data[self.batch_count:self.batch_count + self.batch_size]
+
         self.batch_count += self.batch_size
         return batch
 
@@ -72,25 +72,29 @@ def deepnn(x_image):
     # First convolutional layer - maps one image to 32 feature maps.
 
     with tf.variable_scope('Conv_1'):
+        #Conv2
         W_conv1 = weight_variable([5, 5, FLAGS.img_channels, 32])
         b_conv1 = bias_variable([32])
         h_conv1 = tf.nn.relu(tf.nn.conv2d(x_image, W_conv1, strides=[1, 1, 1, 1], padding='SAME', name='convolution') + b_conv1)
+        #POOL1
         h_pool1 = tf.nn.max_pool(h_conv1, ksize=[1, 2, 2, 1],
                           strides=[1, 2, 2, 1], padding='SAME', name='pooling')
-
-        # You need to continue building your convolutional network!
+        #Conv2
         W_conv2 = weight_variable([5, 5, 32, 64])
         b_conv2 = bias_variable([64])
         h_conv2 = tf.nn.relu(tf.nn.conv2d(h_pool1, W_conv2, strides=[1, 1, 1, 1], padding='SAME', name='convolution') + b_conv2)
-        # Pooling layer - downsamples by 2X.
+        #Pool2
         h_pool2 = tf.nn.max_pool(h_conv2, ksize=[1, 2, 2, 1],
                           strides=[1, 2, 2, 1], padding='SAME', name='pooling')
-        h_final = tf.reshape(h_pool2, [-1,4096])       
+        #reshape
+        h_final = tf.reshape(h_pool2, [-1,4096])   
+        #FC1    
         w_1_dim = 1024
         w_y_dim = 1
         w_1 = tf.Variable(tf.truncated_normal([4096, w_1_dim], stddev=0.1))
         b_1 = tf.Variable(tf.constant(0.1, shape=[w_1_dim]))
         h_fc1 = tf.nn.relu(tf.matmul(h_final, w_1) + b_1)
+        #FC2
         w_y = tf.Variable(tf.truncated_normal([1024,w_y_dim], stddev=0.1))
         b_y = tf.Variable(tf.constant(0.1, shape=[w_y_dim]))
         h_fcy = tf.matmul(h_fc1, w_y) + b_y
