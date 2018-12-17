@@ -8,16 +8,16 @@ from os.path import isfile, join
 import matplotlib.pyplot as plt
 
 FLAGS = tf.app.flags.FLAGS
-
-# Optimisation hyperparameters
+#started at 13:15
+# Optimisation hyperparameters batch size was 64 for nathan
 tf.app.flags.DEFINE_integer('batch_size', 128, 'Number of examples per mini-batch (default: %(default)d)')
-tf.app.flags.DEFINE_float('learning_rate', 1e-4, 'Learning rate (default: %(default)d)')
+tf.app.flags.DEFINE_float('learning_rate', 1e-3, 'Learning rate (default: %(default)d)')
 tf.app.flags.DEFINE_integer('img_width', 160, 'Image width (default: %(default)d)')
 tf.app.flags.DEFINE_integer('img_height', 160, 'Image height (default: %(default)d)')
 tf.app.flags.DEFINE_integer('img_channels', 1, 'Image channels (default: %(default)d)')
 tf.app.flags.DEFINE_integer('num_classes', 1, 'Number of classes (default: %(default)d)')
-tf.app.flags.DEFINE_integer('max_steps', 200,'Number of mini-batches to train on. (default: %(default)d)')
-tf.app.flags.DEFINE_integer('log_frequency', 1,'Number of steps between logging results to the console and saving summaries (default: %(default)d)')
+tf.app.flags.DEFINE_integer('max_steps', 1000,'Number of mini-batches to train on. (default: %(default)d)')
+tf.app.flags.DEFINE_integer('log_frequency', 10,'Number of steps between logging results to the console and saving summaries (default: %(default)d)')
 
 
 
@@ -101,7 +101,7 @@ def image_preprocess():
     imageDir = mainDir+'/extractedImages/'
     #myPath = os.getcwd()+'/'+imageDir
     allImages = ['cropSampled/'+f for f in listdir(os.getcwd()+'/'+'cropSampled'+'/') if isfile(join(os.getcwd()+'/'+'cropSampled'+'/', f))]
-    new_df = np.transpose(new_df.as_matrix(columns=new_df.columns[1:]))
+    new_df = np.transpose(new_df.as_matrix(columns=new_df.columns[:1]))
     return allImages,new_df
     
 def parse_function(filename, label):
@@ -130,11 +130,12 @@ def main(_):
     tf.reset_default_graph()
     images,labels = image_preprocess()
     labels = labels[0]
+    print(labels[0])
     np.random.seed(0)
     np.random.shuffle(images)
     np.random.seed(0)
     np.random.shuffle(labels)
-    print(labels[0])
+    
     #train set
     train_images = images[:7500]
     train_labels = labels[:7500]
@@ -200,8 +201,9 @@ def main(_):
             #test
 
             sess.run([optimiser], feed_dict={x: train_images, y_: train_labels})
-            validation_accuracy = sess.run(accuracy, feed_dict={x: validation_images, y_: validation_labels})
-            print(' step: %g,accuracy: %g' % ( step,validation_accuracy))
+            if step % FLAGS.log_frequency == 0:
+                validation_accuracy = sess.run(accuracy, feed_dict={x: validation_images, y_: validation_labels})
+                print(' step: %g,accuracy: %g' % ( step,validation_accuracy))
 
         evaluated_images = 0
         test_accuracy = 0
@@ -226,6 +228,10 @@ def main(_):
 if __name__ == '__main__':
     tf.app.run(main=main)
 
+#RESULTS:
+#ANGLES: err:4.8 it:1000 lr:1e-3 bs:128
+
+#displacement:  err:1.5 it:1000 lr:1e-3 bs:128
 
 
 
