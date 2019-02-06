@@ -217,7 +217,7 @@ def main(_):
         x = tf.placeholder(tf.float32, [None, FLAGS.img_width,FLAGS.img_height,FLAGS.img_channels])
         y_ = tf.placeholder(tf.float32, [None, FLAGS.num_classes])
 
-    y_conv,lol,lol1 = deepnn(x)
+    y_conv,layer_1,layer_final = deepnn(x)
 
     with tf.variable_scope('x_entropy'):
             cross_entropy = tf.losses.mean_squared_error(labels = y_,predictions = y_conv)
@@ -277,7 +277,7 @@ def main(_):
         test_images[0]
         test_accuracy = test_accuracy / batch_count
         print('test set: accuracy on test set: %0.3f' % (test_accuracy))
-        units = sess.run(lol1,feed_dict={x:np.reshape(test_images[0],[1,160,160,1])})
+        units = sess.run(layer_final,feed_dict={x:np.reshape(test_images[0],[1,160,160,1])})
         plotNNFilter(units)
         plt.show()
 
