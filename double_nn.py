@@ -17,7 +17,7 @@ tf.app.flags.DEFINE_integer('img_width', 160, 'Image width (default: %(default)d
 tf.app.flags.DEFINE_integer('img_height', 160, 'Image height (default: %(default)d)')
 tf.app.flags.DEFINE_integer('img_channels', 1, 'Image channels (default: %(default)d)')
 tf.app.flags.DEFINE_integer('num_classes', 2, 'Number of classes (default: %(default)d)')
-tf.app.flags.DEFINE_integer('max_epochs', 1,'Number of mini-batches to train on. (default: %(default)d)')
+tf.app.flags.DEFINE_integer('max_epochs', 5,'Number of mini-batches to train on. (default: %(default)d)')
 tf.app.flags.DEFINE_integer('log_frequency', 15,'Number of steps between logging results to the console and saving summaries (default: %(default)d)')
 tf.app.flags.DEFINE_string('log_dir', '{cwd}/logs/'.format(cwd=os.getcwd()),
 'Directory where to write event logs and checkpoint. (default: %(default)s)')
@@ -206,10 +206,9 @@ def main(_):
     
     # Define your AdamOptimiser, using FLAGS.learning_rate to minimixe the loss function
     optimizer = tf.train.AdamOptimizer(FLAGS.learning_rate).minimize(cross_entropy)
-    accuracy = tf.losses.absolute_difference(y_conv, y_, reduction=tf.losses.Reduction.NONE)
+    accuracy = tf.losses.absolute_difference(y_conv, y_, reduction=tf.losses.Reduction.NONE)#reduction NONE means output is all predictions without scaling or averaging
     loss_summary = tf.summary.scalar('Loss', cross_entropy)
-    #acc_summary = tf.summary.scalar('Accuracy', accuracy)
-    #merged = tf.summary.merge([loss_summary,acc_summary])
+
     merged = loss_summary
     with tf.Session() as sess:
         train_writer = tf.summary.FileWriter(run_log_dir + '_train', sess.graph,flush_secs=5)
@@ -253,10 +252,9 @@ def main(_):
         sess.run(test_iterator.initializer,feed_dict={test_img_pl:test_data_images,test_labels_pl:test_data_labels})
         while evaluated_images != img_number:
             [test_images,test_labels] = sess.run(test_batch)
-            #test_labels = np.transpose(np.array([test_labels])) # makes it a column vector, required
             evaluated_images += len(test_labels)
             test_accuracy_temp = sess.run(accuracy, feed_dict={x: test_images, y_: test_labels})
-            acc_mean_temp = np.mean(val_accuracy,0)
+            acc_mean_temp = np.mean(test_accuracy_temp,0)
             test_accuracy += acc_mean_temp
             batch_count += 1
             
@@ -274,10 +272,9 @@ if __name__ == '__main__':
     tf.app.run(main=main)
 
 #RESULTS:
-#ANGLES: err:4.8 it:1000 lr:1e-3 bs:128
 
-#displacement:  err:1.5 it:1000 lr:1e-3 bs:128
-
+#displacement: |0.564--0.351--0.485--0.585--0.467--0.478--0.522--0.512--0.510  mean:0.498
+#ANGLES:       |2.201--2.600--2.099--1.831--2.220--1.616--3.138--1.878--3.868  mean:2.383
 
 
 

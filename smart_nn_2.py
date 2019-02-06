@@ -6,6 +6,7 @@ import os.path
 from os import listdir
 from os.path import isfile, join
 import matplotlib.pyplot as plt
+import math
 
 FLAGS = tf.app.flags.FLAGS
 #started at 13:15
@@ -17,7 +18,8 @@ tf.app.flags.DEFINE_integer('img_height', 160, 'Image height (default: %(default
 tf.app.flags.DEFINE_integer('img_channels', 1, 'Image channels (default: %(default)d)')
 tf.app.flags.DEFINE_integer('num_classes', 1, 'Number of classes (default: %(default)d)')
 tf.app.flags.DEFINE_integer('max_epochs', 5,'Number of mini-batches to train on. (default: %(default)d)')
-tf.app.flags.DEFINE_integer('log_frequency', 15,'Number of steps between logging results to the console and saving summaries (default: %(default)d)')
+tf.app.flags.DEFINE_integer('log_on', 1,'Save logs or not. (default: %(default)d)')
+tf.app.flags.DEFINE_integer('log_frequency', 117,'Number of steps between logging results to the console and saving summaries (default: %(default)d)')
 tf.app.flags.DEFINE_string('log_dir', '{cwd}/logs/'.format(cwd=os.getcwd()),
 'Directory where to write event logs and checkpoint. (default: %(default)s)')
 run_log_dir = os.path.join(FLAGS.log_dir, 'ep_{ep}_bs_{bs}'.format(ep=FLAGS.max_epochs,bs=FLAGS.batch_size))
@@ -39,7 +41,7 @@ def bias_variable(shape):
     return tf.Variable(initial, name='biases')
 
 
-def deepnn(x):
+def deepnn(x,visualise=0):
     #x_image = tf.reshape(x_image, [-1, FLAGS.img_width, FLAGS.img_height, FLAGS.img_channels])
     # First convolutional layer - maps one image to 32 feature maps.
     #Conv1
@@ -51,6 +53,8 @@ def deepnn(x):
     use_bias=False,
     name='conv1'
     )
+    #if visualise:
+    #    return conv1
     conv1 = tf.nn.relu(conv1)
     #POOL1 160*160*8
     pool1 = tf.layers.max_pooling2d(
@@ -115,10 +119,10 @@ def deepnn(x):
     #Fully connected
     fc1 = tf.layers.dense(h_final,units=800,activation=tf.nn.relu)
     fcy = tf.layers.dense(fc1,units=1) 
-    return fcy
+    return fcy,conv1,conv4
 
 def image_preprocess():
-    data_labels = readCsv("video_targets_minus1.csv")#_minus1.csv")
+    data_labels = readCsv("video_targets_minus1.csv")
     df = data_labels[['pose_1','pose_6']]
     df.columns =['r','theta']
 
@@ -128,13 +132,9 @@ def image_preprocess():
         for i in range(0,n_duplicates):
             a.append([row['r'],row['theta']])       
     new_df = pd.DataFrame(a,columns=['r','theta'])
-    np.random.seed(0)
-    #data = data.sample(frac=1).reset_index(drop=True)#shuffles data but keeps indices in place
-    mainDir = 'collectCircleTapRand_08161204'
-    imageDir = mainDir+'/extractedImages/'
-    #myPath = os.getcwd()+'/'+imageDir
     allImages = ['cropSampled/'+f for f in listdir(os.getcwd()+'/'+'cropSampled'+'/') if isfile(join(os.getcwd()+'/'+'cropSampled'+'/', f))]
-    new_df = np.transpose(new_df.as_matrix(columns=new_df.columns[:1]))
+    new_df = np.transpose(new_df.as_matrix(columns=new_df.columns[:1]))#r
+    #new_df = np.transpose(new_df.as_matrix(columns=new_df.columns[1:]))#theta
     return allImages,new_df
     
 def parse_function(filename, label):
@@ -157,11 +157,27 @@ def batch_this(filenames,labels,batch_size,n_files,repeat=0):
     return iterator
 
 
+
+
+def plotNNFilter(units):
+    filters = units.shape[3]
+    plt.figure(1, figsize=(20,20))
+    n_columns = 6
+    n_rows = math.ceil(filters / n_columns) + 1
+    for i in range(filters):
+        plt.subplot(n_rows, n_columns, i+1)
+        plt.title('Filter ' + str(i))
+        plt.imshow(units[0,:,:,i], interpolation="nearest", cmap="gray")
+
+
+
 def main(_):
     tf.reset_default_graph()
     images,labels = image_preprocess()
     labels = labels[0]
-    print(labels[0])
+    #min max rescaling:
+    #labels = (labels-min(labels))/(max(labels)-min(labels))
+    print(labels)
     rng = np.random.randint(1000)
     np.random.seed(rng)
     np.random.shuffle(images)
@@ -201,7 +217,7 @@ def main(_):
         x = tf.placeholder(tf.float32, [None, FLAGS.img_width,FLAGS.img_height,FLAGS.img_channels])
         y_ = tf.placeholder(tf.float32, [None, FLAGS.num_classes])
 
-    y_conv = deepnn(x)
+    y_conv,lol,lol1 = deepnn(x)
 
     with tf.variable_scope('x_entropy'):
             cross_entropy = tf.losses.mean_squared_error(labels = y_,predictions = y_conv)
@@ -236,7 +252,7 @@ def main(_):
                 val_accuracy,val_summary = sess.run([accuracy,merged], feed_dict={x: val_images, y_: val_labels})
                 if step % FLAGS.log_frequency == 0:
                     print(' step: %g,accuracy: %g' % (step,val_accuracy))
-                if step % log_frequency == 0:
+                if step % log_frequency==0 and FLAGS.log_on==1:
                     train_writer.add_summary(train_summary,step)
                     val_writer.add_summary(val_summary,step)
                 step += 1
@@ -251,15 +267,29 @@ def main(_):
         sess.run(test_iterator.initializer,feed_dict={test_img_pl:test_data_images,test_labels_pl:test_data_labels})
         while evaluated_images != img_number:
             [test_images,test_labels] = sess.run(test_batch)
+            
             test_labels = np.transpose(np.array([test_labels])) # makes it a column vector, required
             evaluated_images += len(test_labels)
             test_accuracy_temp = sess.run(accuracy, feed_dict={x: test_images, y_: test_labels})
             test_accuracy += test_accuracy_temp
             batch_count += 1
             
-        
+        test_images[0]
         test_accuracy = test_accuracy / batch_count
         print('test set: accuracy on test set: %0.3f' % (test_accuracy))
+        units = sess.run(lol1,feed_dict={x:np.reshape(test_images[0],[1,160,160,1])})
+        plotNNFilter(units)
+        plt.show()
+
+        #plotNNFilter(units)
+        #print(weights)
+        #with tf.variable_scope('conv1',reuse=True) as scope:
+            #tf.get_variable_scope().reuse_variables()
+            #weights = tf.get_variable('kernel:0')
+            #print(weights)
+        #print(tf.get_variable('conv1'))
+
+
 
     print('done') 
         
@@ -269,10 +299,9 @@ if __name__ == '__main__':
     tf.app.run(main=main)
 
 #RESULTS:
-#ANGLES: err:4.8 it:1000 lr:1e-3 bs:128
-
-#displacement:  err:1.5 it:1000 lr:1e-3 bs:128
-
+#displacement 5 epoch: 0.58 0.491 0.739 0.409 0.515 0.447 0.359 0.390 0.351 .542  mean:0.48
+#100epoch: displacement: 0.166 0.195
+#angle 5 epoch: 2.351 2.543 3.663 2.103 2.766 3.205 1.758 2.030 1.969 1.700 mean:2.6
 
 
 

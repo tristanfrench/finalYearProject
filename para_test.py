@@ -17,7 +17,7 @@ tf.app.flags.DEFINE_integer('img_height', 160, 'Image height (default: %(default
 tf.app.flags.DEFINE_integer('img_channels', 1, 'Image channels (default: %(default)d)')
 tf.app.flags.DEFINE_integer('num_classes', 1, 'Number of classes (default: %(default)d)')
 tf.app.flags.DEFINE_integer('max_epochs', 5,'Number of mini-batches to train on. (default: %(default)d)')
-tf.app.flags.DEFINE_integer('log_frequency', 15,'Number of steps between logging results to the console and saving summaries (default: %(default)d)')
+tf.app.flags.DEFINE_integer('log_frequency', 20,'Number of steps between logging results to the console and saving summaries (default: %(default)d)')
 tf.app.flags.DEFINE_string('log_dir', '{cwd}/logs/'.format(cwd=os.getcwd()),
 'Directory where to write event logs and checkpoint. (default: %(default)s)')
 run_log_dir = os.path.join(FLAGS.log_dir, 'ep_{ep}_bs_{bs}'.format(ep=FLAGS.max_epochs,bs=FLAGS.batch_size))
@@ -39,52 +39,83 @@ def bias_variable(shape):
     return tf.Variable(initial, name='biases')
 
 
-def deepnn(x_image):
+def deepnn(x):
     #x_image = tf.reshape(x_image, [-1, FLAGS.img_width, FLAGS.img_height, FLAGS.img_channels])
     # First convolutional layer - maps one image to 32 feature maps.
-    with tf.variable_scope('Conv_1'):
-        #Conv1
-        W_conv1 = weight_variable([5, 5, FLAGS.img_channels, 8])
-        b_conv1 = bias_variable([8])
-        h_conv1 = tf.nn.relu(tf.nn.conv2d(x_image, W_conv1, strides=[1, 1, 1, 1], padding='SAME', name='convolution') + b_conv1)
-        #POOL1 160*160*8
-        h_pool1 = tf.nn.max_pool(h_conv1, ksize=[1, 2, 2, 1],
-                          strides=[1, 2, 2, 1], padding='SAME', name='pooling')
-        #Conv2 80*80*8
-        W_conv2 = weight_variable([5, 5, 8, 16])
-        b_conv2 = bias_variable([16])
-        h_conv2 = tf.nn.relu(tf.nn.conv2d(h_pool1, W_conv2, strides=[1, 1, 1, 1], padding='SAME', name='convolution') + b_conv2)
-        #Pool2 80*80*16
-        h_pool2 = tf.nn.max_pool(h_conv2, ksize=[1, 2, 2, 1],
-                          strides=[1, 2, 2, 1], padding='SAME', name='pooling')
-        #Conv3 40*40*16
-        W_conv3 = weight_variable([5, 5, 16, 32])
-        b_conv3 = bias_variable([32])
-        h_conv3 = tf.nn.relu(tf.nn.conv2d(h_pool2, W_conv3, strides=[1, 1, 1, 1], padding='SAME', name='convolution') + b_conv3)
-        #Pool3 40*40*32
-        h_pool3 = tf.nn.max_pool(h_conv3, ksize=[1, 2, 2, 1],
-                          strides=[1, 2, 2, 1], padding='SAME', name='pooling')
-        #Conv4 20*20*32
-        W_conv4 = weight_variable([5, 5, 32, 32])
-        b_conv4 = bias_variable([32])
-        h_conv4 = tf.nn.relu(tf.nn.conv2d(h_pool3, W_conv4, strides=[1, 1, 1, 1], padding='SAME', name='convolution') + b_conv4)
-        #Pool4 20*20*32
-        h_pool4 = tf.nn.max_pool(h_conv4, ksize=[1, 2, 2, 1],
-                          strides=[1, 2, 2, 1], padding='SAME', name='pooling')
-
-        #reshape 10*10*32
-        h_final = tf.reshape(h_pool4, [-1,3200])   
-        #FC1    
-        w_1_dim = 800
-        w_y_dim = 1
-        w_1 = tf.Variable(tf.truncated_normal([3200, w_1_dim], stddev=0.1))
-        b_1 = tf.Variable(tf.constant(0.1, shape=[w_1_dim]))
-        h_fc1 = tf.nn.relu(tf.matmul(h_final, w_1) + b_1)
-        #FC2
-        w_y = tf.Variable(tf.truncated_normal([800,w_y_dim], stddev=0.1))
-        b_y = tf.Variable(tf.constant(0.1, shape=[w_y_dim]))
-        h_fcy = tf.matmul(h_fc1, w_y) + b_y
-        return h_fcy
+    #Conv1
+    conv1 = tf.layers.conv2d(
+    inputs=x,
+    filters=8,
+    kernel_size=[5,20],
+    padding='same',
+    use_bias=False,
+    name='conv1'
+    )
+    conv1 = tf.nn.relu(conv1)
+    #POOL1 160*160*8
+    pool1 = tf.layers.max_pooling2d(
+        inputs=conv1,
+        pool_size=[2,2],
+        strides=[2,2],
+        name='pool1'
+    )
+    #Conv2 80*80*8
+    conv2 = tf.layers.conv2d(
+    inputs=pool1,
+    filters=16,
+    kernel_size=[5,5],
+    padding='same',
+    use_bias=False,
+    name='conv2'
+    )
+    conv2 = tf.nn.relu(conv2) 
+    #Pool2 80*80*16
+    pool2 = tf.layers.max_pooling2d(
+    inputs=conv2,
+    pool_size=[2,2],
+    strides=[2,2],
+    name='pool2'
+    )
+    #Conv3 40*40*16
+    conv3 = tf.layers.conv2d(
+    inputs=pool2,
+    filters=32,
+    kernel_size=[5,5],
+    padding='same',
+    use_bias=False,
+    name='conv3'
+    )
+    conv3 = tf.nn.relu(conv3) 
+    #Pool3 40*40*32
+    pool3 = tf.layers.max_pooling2d(
+    inputs=conv3,
+    pool_size=[2,2],
+    strides=[2,2],
+    name='pool3'
+    )
+    #Conv4 20*20*32
+    conv4 = tf.layers.conv2d(
+    inputs=pool3,
+    filters=32,
+    kernel_size=[5,5],
+    padding='same',
+    use_bias=False,
+    name='conv4'
+    )
+    conv4 = tf.nn.relu(conv4) 
+    #Pool4 20*20*32
+    pool4 = tf.layers.max_pooling2d(
+    inputs=conv4,
+    pool_size=[2,2],
+    strides=[2,2],
+    name='pool4'
+    )
+    #Reshape 10*10*32
+    h_final = tf.reshape(pool4, [-1,3200])    
+    #Fully connected
+    fc1 = tf.layers.dense(h_final,units=800,activation=tf.nn.relu)
+    fcy = tf.layers.dense(fc1,units=1) 
+    return fcy
 
 def image_preprocess():
     data_labels = readCsv("video_targets_minus1.csv")#_minus1.csv")
@@ -130,7 +161,9 @@ def main(_):
     tf.reset_default_graph()
     images,labels = image_preprocess()
     labels = labels[0]
-    print(labels[0])
+    #min max rescaling:
+    #labels = (labels-min(labels))/(max(labels)-min(labels))
+    print(labels)
     rng = np.random.randint(1000)
     np.random.seed(rng)
     np.random.shuffle(images)
@@ -238,57 +271,8 @@ if __name__ == '__main__':
     tf.app.run(main=main)
 
 #RESULTS:
-#ANGLES: err:4.8 it:1000 lr:1e-3 bs:128
+#displacement conv1 kernel: [5,20]  0.301--0.423--0.474--0.406--0.522--0.358--0.401--0.382--0.408  mean:.368
 
-#displacement:  err:1.5 it:1000 lr:1e-3 bs:128
-'''
-Epoch: 0
- step: 0,accuracy: 12443.9
- step: 15,accuracy: 254.135
- step: 30,accuracy: 53.444
- step: 45,accuracy: 15.7786
- step: 60,accuracy: 5.51346
- step: 75,accuracy: 4.91459
- step: 90,accuracy: 4.62335
- step: 105,accuracy: 4.10557
-Epoch: 1
- step: 120,accuracy: 3.9998
- step: 135,accuracy: 3.74841
- step: 150,accuracy: 3.54038
- step: 165,accuracy: 3.95753
- step: 180,accuracy: 3.37849
- step: 195,accuracy: 3.32352
- step: 210,accuracy: 2.95652
- step: 225,accuracy: 3.31353
-Epoch: 2
- step: 240,accuracy: 3.33795
- step: 255,accuracy: 3.0853
- step: 270,accuracy: 2.44064
- step: 285,accuracy: 2.92955
- step: 300,accuracy: 2.69549
- step: 315,accuracy: 2.53804
- step: 330,accuracy: 2.75889
- step: 345,accuracy: 2.84421
-Epoch: 3
- step: 360,accuracy: 2.8241
- step: 375,accuracy: 2.4804
- step: 390,accuracy: 2.47287
- step: 405,accuracy: 2.55386
- step: 420,accuracy: 2.88954
- step: 435,accuracy: 2.63361
- step: 450,accuracy: 2.06276
- step: 465,accuracy: 2.95446
-Epoch: 4
- step: 480,accuracy: 2.41278
- step: 495,accuracy: 2.586
- step: 510,accuracy: 2.06186
- step: 525,accuracy: 2.22821
- step: 540,accuracy: 2.40151
- step: 555,accuracy: 2.56305
- step: 570,accuracy: 2.38914
- step: 585,accuracy: 2.39339
-test set: accuracy on test set: 2.661
-'''
 
 
 
