@@ -164,35 +164,6 @@ def main(_):
     plt.show()
 
 
-    # Utility to search for layer index by name. 
-    # Alternatively we can specify this as -1 since it corresponds to the last layer.
-    layer_idx = utils.find_layer_idx(model, 'preds')
-
-    # Swap softmax with linear
-    model.layers[layer_idx].activation = activations.linear
-    model = utils.apply_modifications(model)
-
-    grads = visualize_saliency(model, layer_idx, filter_indices=0, seed_input=val_x[idx])
-    # Plot with 'jet' colormap to visualize as a heatmap.
-    plt.imshow(grads, cmap='jet')
-
-
-    # This corresponds to the Dense linear layer.
-    for class_idx in np.arange(10): 
-        indices = np.where(val_y[:, class_idx] == 1.)[0]
-        idx = indices[0]
-
-        f, ax = plt.subplots(1, 4)
-        ax[0].imshow(val_x[idx][..., 0])
-    
-        for i, modifier in enumerate([None, 'guided', 'relu']):
-            grads = visualize_saliency(model, layer_idx, filter_indices=class_idx, 
-            seed_input=val_x[idx], backprop_modifier=modifier)
-            if modifier is None:
-                modifier = 'vanilla'
-            ax[i+1].set_title(modifier) 
-            ax[i+1].imshow(grads, cmap='jet')
-
 
 if __name__ == '__main__':
     tf.app.run(main=main)
