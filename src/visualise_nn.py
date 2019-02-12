@@ -16,6 +16,7 @@ from vis.visualization import visualize_activation
 from vis.utils import utils
 from keras import activations
 from vis.visualization import visualize_saliency
+from collections import defaultdict
 
 
 FLAGS = tf.app.flags.FLAGS
@@ -27,7 +28,7 @@ tf.app.flags.DEFINE_integer('img_width', 160, 'Image width (default: %(default)d
 tf.app.flags.DEFINE_integer('img_height', 160, 'Image height (default: %(default)d)')
 tf.app.flags.DEFINE_integer('img_channels', 1, 'Image channels (default: %(default)d)')
 tf.app.flags.DEFINE_integer('num_classes', 1, 'Number of classes (default: %(default)d)')
-tf.app.flags.DEFINE_integer('max_epochs', 10,'Number of mini-batches to train on. (default: %(default)d)')
+tf.app.flags.DEFINE_integer('max_epochs', 5,'Number of mini-batches to train on. (default: %(default)d)')
 tf.app.flags.DEFINE_integer('log_frequency', 15,'Number of steps between logging results to the console and saving summaries (default: %(default)d)')
 tf.app.flags.DEFINE_string('log_dir', '{cwd}/logs/'.format(cwd=os.getcwd()),
 'Directory where to write event logs and checkpoint. (default: %(default)s)')
@@ -166,9 +167,8 @@ def main(_):
     
 
 
-
     #video_2000_12_crop
-    img_to_see = plt.imread("cropSampled/video_1430_9_crop.jpg")
+    img_to_see = plt.imread("cropSampled/video_0099_8_crop.jpg")
     # Utility to search for layer index by name. 
     # Alternatively we can specify this as -1 since it corresponds to the last layer.
     layer_idx = utils.find_layer_idx(model, 'preds')
@@ -190,6 +190,7 @@ def main(_):
         ax[i+1].set_title(modifier) 
         ax[i+1].imshow(grads, cmap='jet')
     plt.show()
+    '''
     f, ax = plt.subplots(1, 4)
     ax[0].imshow(img_to_see)
     img_to_see = plt.imread("cropSampled/video_1447_7_crop.jpg")
@@ -201,40 +202,51 @@ def main(_):
         ax[i+1].set_title(modifier) 
         ax[i+1].imshow(grads, cmap='jet')
     plt.show()
+    '''
 
+    i = 23 # for example
+    data = plt.imread("cropSampled/video_0099_8_crop.jpg")
+    print(model.predict(data[:,:,0].reshape([1,160,160,1])))
+    label_99 = 2.544006547
+    #correct_class = np.argmax(val_y[i])
+    correct_class = 0
+    # input tensor for model.predict
+    #inp = data.reshape(1, 28, 28, 1)
 
-i = 23 # for example
-data = val_x[i]
-correct_class = np.argmax(val_y[i])
+    # image data for matplotlib's imshow
+    #img = data.reshape(28, 28)
 
-# input tensor for model.predict
-inp = data.reshape(1, 28, 28, 1)
+    # occlusion
+    img_size = 160
+    occlusion_size = 40
 
-# image data for matplotlib's imshow
-img = data.reshape(28, 28)
+    print('occluding...')
 
-# occlusion
-img_size = img.shape[0]
-occlusion_size = 4
+    heatmap = np.zeros((img_size, img_size), np.float32)
+    class_pixels = np.zeros((img_size, img_size), np.int16)
 
-print('occluding...')
+    '''
+    counters = defaultdict(int)
+    for x,y,img in iter_occlusion(data, size=occlusion_size):
+        out = model.predict(img[:,:,0].reshape([1,160,160,1]))
+        print(out)
+        input("Press Enter to continue...")
+    dfg
+    '''
+    for n, (x, y, img_float) in enumerate(iter_occlusion(data, size=occlusion_size)):
 
-heatmap = np.zeros((img_size, img_size), np.float32)
-class_pixels = np.zeros((img_size, img_size), np.int16)
+        X = img_float[:,:,0].reshape(1, 160,160, 1)
+        out = model.predict(X)[[0]]
+        #print('#{}: {} @ {} (correct class: {})'.format(n, np.argmax(out), np.amax(out), out[0][correct_class]))
+        #print('x {} - {} | y {} - {}'.format(x, x + occlusion_size, y, y + occlusion_size))
 
-from collections import defaultdict
-counters = defaultdict(int)
+        heatmap[y:y + occlusion_size, x:x + occlusion_size] = abs(out-label_99)
+        #class_pixels[y:y + occlusion_size, x:x + occlusion_size] = np.argmax(out)
+        #counters[np.argmax(out)] += 1
+    plt.imshow(heatmap)
+    plt.colorbar()
+    plt.show()
 
-for n, (x, y, img_float) in enumerate(iter_occlusion(data, size=occlusion_size)):
-
-    X = img_float.reshape(1, 28, 28, 1)
-    out = model.predict(X)
-    #print('#{}: {} @ {} (correct class: {})'.format(n, np.argmax(out), np.amax(out), out[0][correct_class]))
-    #print('x {} - {} | y {} - {}'.format(x, x + occlusion_size, y, y + occlusion_size))
-
-    heatmap[y:y + occlusion_size, x:x + occlusion_size] = out[0][correct_class]
-    class_pixels[y:y + occlusion_size, x:x + occlusion_size] = np.argmax(out)
-    counters[np.argmax(out)] += 1
 
 if __name__ == '__main__':
     tf.app.run(main=main)
