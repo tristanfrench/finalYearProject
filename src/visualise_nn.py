@@ -28,7 +28,7 @@ tf.app.flags.DEFINE_integer('img_width', 160, 'Image width (default: %(default)d
 tf.app.flags.DEFINE_integer('img_height', 160, 'Image height (default: %(default)d)')
 tf.app.flags.DEFINE_integer('img_channels', 1, 'Image channels (default: %(default)d)')
 tf.app.flags.DEFINE_integer('num_classes', 1, 'Number of classes (default: %(default)d)')
-tf.app.flags.DEFINE_integer('max_epochs', 5,'Number of mini-batches to train on. (default: %(default)d)')
+tf.app.flags.DEFINE_integer('max_epochs', 1,'Number of mini-batches to train on. (default: %(default)d)')
 tf.app.flags.DEFINE_integer('log_frequency', 15,'Number of steps between logging results to the console and saving summaries (default: %(default)d)')
 tf.app.flags.DEFINE_string('log_dir', '{cwd}/logs/'.format(cwd=os.getcwd()),
 'Directory where to write event logs and checkpoint. (default: %(default)s)')
