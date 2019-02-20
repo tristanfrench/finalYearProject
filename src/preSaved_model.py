@@ -58,12 +58,32 @@ def single_square_occ(img,size=10):
 
             yield tmp,y_0,y_1,x_0,x_1
 
+def diag_occ(img,n_diag=16):
+    img_y,img_x = np.shape(img)
+    nb_iter = int(img_y/n_diag)
+    colour_value = 0
+    for it in range(2):
+        for i in range(0,img_y,n_diag):
+            tmp = img.copy()
+            for j in range(n_diag):
+                if it == 0:
+                    np.fill_diagonal(tmp[i+j:],colour_value)
+                else:
+                    np.fill_diagonal(tmp[:,i+j:],colour_value)
+            yield tmp,it,i
 
 
 def main():
     model = load_model('kersa_1.h5')
-    img = plt.imread("cropSampled/video_1608_10_crop.jpg")[:,:,0]
-
+    img = plt.imread("cropSampled/video_0011_11_crop.jpg")[:,:,0]
+    #video_0002_10_crop
+    #video_0001_11_crop
+    #video_0011_11_crop
+    '''
+    for new_img in diag_occ(img):
+        plt.imshow(new_img,cmap='gray')
+        plt.show()
+    '''
     #img_occ = img[:][:,:,0]
     #img_occ.setflags(write=1)
     #img_occ[0:50,:] = 0
@@ -76,13 +96,16 @@ def main():
     # occlusion
     img_size = 160
     occlusion_size = 10
+    n_diag = 20
+
     label_99 = 2.544006547
     label_1608 = -0.152099177
+    label_1 = -1.26
+    label_2 = 8.14
+    label_11 = 4.132
+
 
     heatmap = np.zeros((img_size, img_size), np.float32)
-    '''
-    for n, (x, y, img_float) in enumerate(iter_occlusion(img, size=occlusion_size)):
-
     '''
     for occ_img,y_0,y_1,x_0,x_1 in single_square_occ(img):
         
@@ -92,10 +115,21 @@ def main():
     ax.imshow(heatmap,alpha=0.6)
     #fig.colorbar(heatmap)
     plt.show()
-    
-    #print(heatmap)
-    #print(heatmap[:2,::10])
+    '''
+   
+    for occ_img,it,i in diag_occ(img,n_diag):
+        
+        x = occ_img.reshape(1, 160,160, 1)
+        out = model.predict(x)[[0]]
+        for j in range(n_diag):
+            if it == 0:
+                np.fill_diagonal(heatmap[i+j:],abs(out-label_11))
+            else:
+                np.fill_diagonal(heatmap[:,i+j:],abs(out-label_11))
+    ax.imshow(heatmap,alpha=0.6)
     print(np.max(heatmap),np.min(heatmap))
+    plt.show()
+    
 
 
 
