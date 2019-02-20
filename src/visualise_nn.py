@@ -28,7 +28,7 @@ tf.app.flags.DEFINE_integer('img_width', 160, 'Image width (default: %(default)d
 tf.app.flags.DEFINE_integer('img_height', 160, 'Image height (default: %(default)d)')
 tf.app.flags.DEFINE_integer('img_channels', 1, 'Image channels (default: %(default)d)')
 tf.app.flags.DEFINE_integer('num_classes', 1, 'Number of classes (default: %(default)d)')
-tf.app.flags.DEFINE_integer('max_epochs', 1,'Number of mini-batches to train on. (default: %(default)d)')
+tf.app.flags.DEFINE_integer('max_epochs', 5,'Number of mini-batches to train on. (default: %(default)d)')
 tf.app.flags.DEFINE_integer('log_frequency', 15,'Number of steps between logging results to the console and saving summaries (default: %(default)d)')
 tf.app.flags.DEFINE_string('log_dir', '{cwd}/logs/'.format(cwd=os.getcwd()),
 'Directory where to write event logs and checkpoint. (default: %(default)s)')
@@ -129,6 +129,8 @@ def main(_):
     test_data_images = images[9929:]
     test_data_labels = labels[9929:]  
 
+
+
     model = keras.Sequential()
     #Conv1
     model.add(Conv2D(8, kernel_size=5, padding='SAME', activation='relu',input_shape=(160,160,1),name='conv1'))
@@ -150,6 +152,7 @@ def main(_):
     model.add(Dense(1,name="preds"))
     #optimizer and loss
     print('here')
+
     model.compile(optimizer='adam', loss='mse', metrics=['mae'])
     train_generator = img_generator(train_data_images,train_data_labels,FLAGS.batch_size)
     val_generator = img_generator(val_data_images,val_data_labels,FLAGS.batch_size)
@@ -164,13 +167,23 @@ def main(_):
     print(model.evaluate_generator(test_generator, steps=test_steps))
     print(model.metrics_names)
 
-    
+    model.save('kersa_1.h5')
 
 
     #video_2000_12_crop
     img_to_see = plt.imread("cropSampled/video_0099_8_crop.jpg")
+    img_occ = img_to_see[:][:,:,0]
+    img_occ.setflags(write=1)
+    img_occ[6:10,100:104] = 0
+    plt.imshow(img_occ,cmap='gray')
+    plt.show()
+    X = img_occ.reshape(1, 160,160, 1)
+    out = model.predict(X)[[0]]
+    print(out)
+
     # Utility to search for layer index by name. 
     # Alternatively we can specify this as -1 since it corresponds to the last layer.
+    '''
     layer_idx = utils.find_layer_idx(model, 'preds')
 
     # Swap softmax with linear
@@ -191,40 +204,23 @@ def main(_):
         ax[i+1].imshow(grads, cmap='jet')
     plt.show()
     '''
-    f, ax = plt.subplots(1, 4)
-    ax[0].imshow(img_to_see)
-    img_to_see = plt.imread("cropSampled/video_1447_7_crop.jpg")
-    for i, modifier in enumerate([None, 'guided', 'relu']):
-        grads = visualize_saliency(model, layer_idx, filter_indices=0, 
-        seed_input=img_to_see[:,:,0].reshape([160,160,1]), backprop_modifier=modifier)
-        if modifier is None:
-            modifier = 'vanilla'
-        ax[i+1].set_title(modifier) 
-        ax[i+1].imshow(grads, cmap='jet')
-    plt.show()
-    '''
 
+    '''
     i = 23 # for example
     data = plt.imread("cropSampled/video_0099_8_crop.jpg")
     print(model.predict(data[:,:,0].reshape([1,160,160,1])))
     label_99 = 2.544006547
-    #correct_class = np.argmax(val_y[i])
     correct_class = 0
-    # input tensor for model.predict
-    #inp = data.reshape(1, 28, 28, 1)
-
-    # image data for matplotlib's imshow
-    #img = data.reshape(28, 28)
 
     # occlusion
     img_size = 160
-    occlusion_size = 40
+    occlusion_size = 4
 
     print('occluding...')
 
     heatmap = np.zeros((img_size, img_size), np.float32)
-    class_pixels = np.zeros((img_size, img_size), np.int16)
 
+    '''
     '''
     counters = defaultdict(int)
     for x,y,img in iter_occlusion(data, size=occlusion_size):
@@ -233,19 +229,18 @@ def main(_):
         input("Press Enter to continue...")
     dfg
     '''
-    for n, (x, y, img_float) in enumerate(iter_occlusion(data, size=occlusion_size)):
 
+    '''
+    for n, (x, y, img_float) in enumerate(iter_occlusion(data, size=occlusion_size)):
         X = img_float[:,:,0].reshape(1, 160,160, 1)
         out = model.predict(X)[[0]]
-        #print('#{}: {} @ {} (correct class: {})'.format(n, np.argmax(out), np.amax(out), out[0][correct_class]))
-        #print('x {} - {} | y {} - {}'.format(x, x + occlusion_size, y, y + occlusion_size))
-
         heatmap[y:y + occlusion_size, x:x + occlusion_size] = abs(out-label_99)
-        #class_pixels[y:y + occlusion_size, x:x + occlusion_size] = np.argmax(out)
-        #counters[np.argmax(out)] += 1
     plt.imshow(heatmap)
     plt.colorbar()
     plt.show()
+
+
+    '''
 
 
 if __name__ == '__main__':
