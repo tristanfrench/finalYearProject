@@ -61,7 +61,7 @@ def single_square_occ(img,size=10):
 def diag_occ(img,n_diag=16):
     img_y,img_x = np.shape(img)
     nb_iter = int(img_y/n_diag)
-    colour_value = 0
+    colour_value = 255
     for it in range(2):
         for i in range(0,img_y,n_diag):
             tmp = img.copy()
@@ -72,13 +72,67 @@ def diag_occ(img,n_diag=16):
                     np.fill_diagonal(tmp[:,i+j:],colour_value)
             yield tmp,it,i
 
+def better_diag_occ(img,n_diag=10):
+    img_y,img_x = np.shape(img)
+    line_angle = 2
+    colour_value = 0
+    for it in range(2):
+        for i in range(0,img_y,n_diag):
+            tmp = img.copy()
+            if it == 0:
+                row = 0
+                col = i
+            else:
+                col = 0
+                row = i
+            print(row)
+           
+            while tmp[row,col:col+n_diag].size: #check if array not empty
+                tmp[row,col:col+n_diag] = colour_value
+                row += 1
+                col += line_angle
+                if row>=160:
+                    break
+            yield tmp,it,i
+       
+
+
+
+def visualise_occlusion(model,occ_type,size):
+    img = plt.imread("cropSampled/video_1007_14_crop.jpg")[:,:,0]
+    fig, ax = plt.subplots()
+    ax.imshow(img,cmap='gray')
+    img_size = 160
+    heatmap = np.zeros((img_size, img_size), np.float32)
+    original_prediction = model.predict(img.reshape(1, 160,160, 1))[[0]]
+    if occ_type == 'square':
+        for occ_img,y_0,y_1,x_0,x_1 in single_square_occ(img,size):
+            x = occ_img.reshape(1, 160,160, 1)
+            out = model.predict(x)[[0]]
+            heatmap[y_0:y_1,x_0:x_1] = abs(out-original_prediction)
+        #fig.colorbar(heatmap)
+    elif occ_type == 'diag':
+        for occ_img,it,i in diag_occ(img,size):
+            x = occ_img.reshape(1, 160,160, 1)
+            out = model.predict(x)[[0]]
+            for j in range(size):
+                if it == 0:
+                    np.fill_diagonal(heatmap[i+j:],abs(out-original_prediction))
+                else:
+                    np.fill_diagonal(heatmap[:,i+j:],abs(out-original_prediction))
+    ax.imshow(heatmap,alpha=0.6)
+    print(original_prediction)
+    print(np.max(heatmap),np.min(heatmap))
+    plt.show()
+
 
 def main():
-    model = load_model('kersa_1.h5')
-    img = plt.imread("cropSampled/video_0011_11_crop.jpg")[:,:,0]
+    model = load_model('trained_models/keras_angle_5.h5')
+
     #video_0002_10_crop
     #video_0001_11_crop
     #video_0011_11_crop
+    #init: video_1007_14_crop
     '''
     for new_img in diag_occ(img):
         plt.imshow(new_img,cmap='gray')
@@ -87,17 +141,19 @@ def main():
     #img_occ = img[:][:,:,0]
     #img_occ.setflags(write=1)
     #img_occ[0:50,:] = 0
-    fig, ax = plt.subplots()
-    ax.imshow(img,cmap='gray')
+
     #plt.show()
     #X = img_occ.reshape(1, 160,160, 1)
     #out = model.predict(X)[[0]]
     #print(out)
     # occlusion
-    img_size = 160
     occlusion_size = 10
-    n_diag = 20
-
+    n_diag = 40
+    #visualise_occlusion(model,'diag',20)
+    img = plt.imread("cropSampled/video_1007_14_crop.jpg")[:,:,0]
+    for occ_img,_,_ in better_diag_occ(img):
+        plt.imshow(occ_img)
+        plt.show()
     label_99 = 2.544006547
     label_1608 = -0.152099177
     label_1 = -1.26
@@ -105,30 +161,6 @@ def main():
     label_11 = 4.132
 
 
-    heatmap = np.zeros((img_size, img_size), np.float32)
-    '''
-    for occ_img,y_0,y_1,x_0,x_1 in single_square_occ(img):
-        
-        x = occ_img.reshape(1, 160,160, 1)
-        out = model.predict(x)[[0]]
-        heatmap[y_0:y_1,x_0:x_1] = abs(out-label_1608)
-    ax.imshow(heatmap,alpha=0.6)
-    #fig.colorbar(heatmap)
-    plt.show()
-    '''
-   
-    for occ_img,it,i in diag_occ(img,n_diag):
-        
-        x = occ_img.reshape(1, 160,160, 1)
-        out = model.predict(x)[[0]]
-        for j in range(n_diag):
-            if it == 0:
-                np.fill_diagonal(heatmap[i+j:],abs(out-label_11))
-            else:
-                np.fill_diagonal(heatmap[:,i+j:],abs(out-label_11))
-    ax.imshow(heatmap,alpha=0.6)
-    print(np.max(heatmap),np.min(heatmap))
-    plt.show()
     
 
 
