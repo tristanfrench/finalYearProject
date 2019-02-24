@@ -75,7 +75,7 @@ def diag_occ(img,n_diag=16):
 def better_diag_occ(img,n_diag=10):
     img_y,img_x = np.shape(img)
     line_angle = 2
-    colour_value = 0
+    colour_value = 255
     for it in range(2):
         for i in range(0,img_y,n_diag):
             tmp = img.copy()
@@ -85,7 +85,6 @@ def better_diag_occ(img,n_diag=10):
             else:
                 col = 0
                 row = i
-            print(row)
            
             while tmp[row,col:col+n_diag].size: #check if array not empty
                 tmp[row,col:col+n_diag] = colour_value
@@ -93,18 +92,18 @@ def better_diag_occ(img,n_diag=10):
                 col += line_angle
                 if row>=160:
                     break
-            yield tmp,it,i
+            yield tmp,it,i,line_angle
        
 
 
 
 def visualise_occlusion(model,occ_type,size):
-    img = plt.imread("cropSampled/video_1007_14_crop.jpg")[:,:,0]
+    img = plt.imread("cropSampled/video_0305_10_crop.jpg")[:,:,0]
     fig, ax = plt.subplots()
     ax.imshow(img,cmap='gray')
     img_size = 160
     heatmap = np.zeros((img_size, img_size), np.float32)
-    original_prediction = model.predict(img.reshape(1, 160,160, 1))[[0]]
+    original_prediction = model.predict(img.reshape(1, 160,160, 1))[0][0]
     if occ_type == 'square':
         for occ_img,y_0,y_1,x_0,x_1 in single_square_occ(img,size):
             x = occ_img.reshape(1, 160,160, 1)
@@ -120,6 +119,24 @@ def visualise_occlusion(model,occ_type,size):
                     np.fill_diagonal(heatmap[i+j:],abs(out-original_prediction))
                 else:
                     np.fill_diagonal(heatmap[:,i+j:],abs(out-original_prediction))
+    elif occ_type == 'good_diag':
+        for occ_img,it,i,line_angle in better_diag_occ(img,size):
+            x = occ_img.reshape(1, 160,160, 1)
+            out = model.predict(x)[[0]]
+            if it == 0:
+                row = 0
+                col = i
+            else:
+                col = 0
+                row = i
+            while heatmap[row,col:col+size].size: #check if array not empty
+                heatmap[row,col:col+size] = abs(out-original_prediction)
+                row += 1
+                col += line_angle
+                if row>=160:
+                    break
+
+
     ax.imshow(heatmap,alpha=0.6)
     print(original_prediction)
     print(np.max(heatmap),np.min(heatmap))
@@ -149,11 +166,7 @@ def main():
     # occlusion
     occlusion_size = 10
     n_diag = 40
-    #visualise_occlusion(model,'diag',20)
-    img = plt.imread("cropSampled/video_1007_14_crop.jpg")[:,:,0]
-    for occ_img,_,_ in better_diag_occ(img):
-        plt.imshow(occ_img)
-        plt.show()
+    visualise_occlusion(model,'good_diag',10)
     label_99 = 2.544006547
     label_1608 = -0.152099177
     label_1 = -1.26
