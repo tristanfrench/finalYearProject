@@ -1,21 +1,25 @@
-#import tensorflow as tf
 import numpy as np
-#import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from matplotlib.pyplot import imshow
+
 import keras
 from keras.layers import Dense, Conv2D, Flatten, MaxPooling2D
 from keras.models import load_model
+from keras import activations
+from keras.callbacks import TensorBoard
+
 import os
 import os.path
 from os import listdir
 from os.path import isfile, join
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-#import math
-from matplotlib.pyplot import imshow
-from keras.callbacks import TensorBoard
+import sys
+
+
 #from vis.visualization import visualize_activation
 #from vis.utils import utils
-from keras import activations
+
+import pandas as pd
 #from vis.visualization import visualize_saliency
 
 def iter_occlusion(image, size=8):
@@ -43,7 +47,7 @@ def iter_occlusion(image, size=8):
 
             yield x - occlusion_padding, y - occlusion_padding, \
                 tmp[occlusion_padding:tmp.shape[0] - occlusion_padding, occlusion_padding:tmp.shape[1] - occlusion_padding]
-def single_square_occ(img,size=10):
+def single_square_occ(img, size=10):
     img_y,img_x = np.shape(img)
     nb_iter = int(img_y/size)
     colour_value = 150
@@ -58,7 +62,7 @@ def single_square_occ(img,size=10):
 
             yield tmp,y_0,y_1,x_0,x_1
 
-def diag_occ(img,n_diag=16):
+def diag_occ(img, n_diag=16):
     img_y,img_x = np.shape(img)
     nb_iter = int(img_y/n_diag)
     colour_value = 255
@@ -72,10 +76,10 @@ def diag_occ(img,n_diag=16):
                     np.fill_diagonal(tmp[:,i+j:],colour_value)
             yield tmp,it,i
 
-def better_diag_occ(img,n_diag=10):
+def better_diag_occ(img, n_diag=10):
     img_y,img_x = np.shape(img)
     line_angle = 2
-    colour_value = 255
+    colour_value = 0
     for it in range(2):
         for i in range(0,img_y,n_diag):
             tmp = img.copy()
@@ -95,10 +99,7 @@ def better_diag_occ(img,n_diag=10):
             yield tmp,it,i,line_angle
        
 
-
-
-def visualise_occlusion(model,occ_type,size):
-    img = plt.imread("cropSampled/video_0305_10_crop.jpg")[:,:,0]
+def visualise_occlusion(img, model, occ_type, size):
     fig, ax = plt.subplots()
     ax.imshow(img,cmap='gray')
     img_size = 160
@@ -109,7 +110,6 @@ def visualise_occlusion(model,occ_type,size):
             x = occ_img.reshape(1, 160,160, 1)
             out = model.predict(x)[[0]]
             heatmap[y_0:y_1,x_0:x_1] = abs(out-original_prediction)
-        #fig.colorbar(heatmap)
     elif occ_type == 'diag':
         for occ_img,it,i in diag_occ(img,size):
             x = occ_img.reshape(1, 160,160, 1)
@@ -135,50 +135,47 @@ def visualise_occlusion(model,occ_type,size):
                 col += line_angle
                 if row>=160:
                     break
-
-
-    ax.imshow(heatmap,alpha=0.6)
+    ax.imshow(heatmap, alpha=0.6)
     print(original_prediction)
     print(np.max(heatmap),np.min(heatmap))
+    
+
+def show_line(dis, angle):
+    point = [80,80] #centre of image
+    dis = -dis*4 #convert mm in pixel
+    angle = -angle*np.pi/180 #convert deg in rad
+    angle_p = angle-90*np.pi/180
+    x = 40 #length of red line
+    perpen_point = [point[0]+dis*np.cos(angle_p),point[1]+dis*np.sin(angle_p)]
+    new_point_1 = [perpen_point[0]+x*np.cos(angle),perpen_point[1]+x*np.sin(angle)]
+    new_point_2 = [perpen_point[0]-x*np.cos(angle),perpen_point[1]-x*np.sin(angle)]
+    return new_point_1,new_point_2
+
+def get_labels(img_nb):
+    #import labels and return r and theta for correct image
+    img_nb = int(img_nb)
+    labels = pd.read_csv("video_targets_minus1.csv")
+    return labels['pose_1'][img_nb],labels['pose_6'][img_nb]
+
+def main(argv):
+    img_nb = argv
+    #import keras model
+    model = load_model('trained_models/keras_angle_5.h5')
+    #read image
+    img = plt.imread(f"cropSampled/video_{img_nb}_10_crop.jpg")[:,:,0]
+    #occlusion algo
+    visualise_occlusion(img,model,'good_diag',20)
+    #show line that shows the edge
+    r,theta = get_labels(img_nb)
+    print(f'r is {r}, theta is {theta}')
+    point_1,point_2 = show_line(r,theta)
+    plt.plot([point_2[0],point_1[0]], [point_2[1],point_1[1]], 'r-')
     plt.show()
 
-
-def main():
-    model = load_model('trained_models/keras_angle_5.h5')
-
-    #video_0002_10_crop
-    #video_0001_11_crop
-    #video_0011_11_crop
-    #init: video_1007_14_crop
-    '''
-    for new_img in diag_occ(img):
-        plt.imshow(new_img,cmap='gray')
-        plt.show()
-    '''
-    #img_occ = img[:][:,:,0]
-    #img_occ.setflags(write=1)
-    #img_occ[0:50,:] = 0
-
-    #plt.show()
-    #X = img_occ.reshape(1, 160,160, 1)
-    #out = model.predict(X)[[0]]
-    #print(out)
-    # occlusion
-    occlusion_size = 10
-    n_diag = 40
-    visualise_occlusion(model,'good_diag',10)
-    label_99 = 2.544006547
-    label_1608 = -0.152099177
-    label_1 = -1.26
-    label_2 = 8.14
-    label_11 = 4.132
-
-
-    
 
 
 
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1])
