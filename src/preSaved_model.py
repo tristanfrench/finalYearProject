@@ -83,7 +83,7 @@ def better_diag_occ(img, n_diag=10):
     special_row = 0
 
     ######################################################
-    
+    it = 0
     for i in range(0,img_y,n_diag):
         tmp = img.copy()
         row = 0
@@ -94,16 +94,18 @@ def better_diag_occ(img, n_diag=10):
             col += line_angle
             if row>=160:
                 break
-        yield tmp,i,line_angle
-    
-    for i in range(0,int(np.floor(160/(n_diag/line_angle)))):
+        yield tmp,it,i,line_angle
+    it = 1
+    for i in range(0,int(np.ceil(160/(n_diag/line_angle)))-1):
         tmp = img.copy() 
         col = 0
         row = special_row
-        print(row)
+        row_to_return = row
         row_changed = 0
         alpha = 1
         beta = 0
+        if special_row == 160:
+            break
         while tmp[row,col:col+alpha-beta].size: #check if array not empty
             tmp[row,col:col+alpha-beta] = colour_value
             row += 1
@@ -116,7 +118,7 @@ def better_diag_occ(img, n_diag=10):
                 beta -= line_angle
             if row>=160:
                 break
-        yield tmp,i,line_angle
+        yield tmp,it,row_to_return,line_angle
 
        
 
@@ -141,21 +143,34 @@ def visualise_occlusion(img, model, occ_type, size):
                 else:
                     np.fill_diagonal(heatmap[:,i+j:],abs(out-original_prediction))
     elif occ_type == 'good_diag':
-        for occ_img,it,i,line_angle in better_diag_occ(img,size):
+        for occ_img,it,i,line_angle, in better_diag_occ(img,size):
             x = occ_img.reshape(1, 160,160, 1)
             out = model.predict(x)[[0]]
             if it == 0:
                 row = 0
                 col = i
+                while heatmap[row,col:col+size].size: #check if array not empty
+                    heatmap[row,col:col+size] = abs(out-original_prediction)
+                    row += 1
+                    col += line_angle
+                    if row>=160:
+                        break
             else:
                 col = 0
                 row = i
-            while heatmap[row,col:col+size].size: #check if array not empty
-                heatmap[row,col:col+size] = abs(out-original_prediction)
-                row += 1
-                col += line_angle
-                if row>=160:
-                    break
+                alpha = 1
+                beta = 0
+                while heatmap[row,col:col+alpha-beta].size: #check if array not empty
+                    heatmap[row,col:col+alpha-beta] = abs(out-original_prediction)
+                    row += 1
+                    if alpha-beta > size:
+                        col += line_angle
+                    else:
+                        beta -= line_angle
+                    if row>=160:
+                        break
+            
+            
     ax.imshow(heatmap, alpha=0.6)
     print(original_prediction)
     print(np.max(heatmap),np.min(heatmap))
@@ -186,7 +201,8 @@ def main(argv):
     model = load_model('trained_models/keras_angle_5.h5')
     #read image
     img = plt.imread(f"cropSampled/video_{img_nb}_10_crop.jpg")[:,:,0]
-    for occ_img,i,line_angle in better_diag_occ(img,occ_size):
+    
+    for occ_img,it,i,line_angle in better_diag_occ(img,occ_size):
         plt.imshow(occ_img)
         plt.show()
     '''
@@ -199,6 +215,7 @@ def main(argv):
     plt.plot([point_2[0],point_1[0]], [point_2[1],point_1[1]], 'r-')
     plt.show()
     '''
+    
 
 
 
