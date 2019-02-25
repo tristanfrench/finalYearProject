@@ -84,6 +84,7 @@ def better_diag_occ(img, n_diag=10):
 
     ######################################################
     it = 0
+    
     for i in range(0,img_y,n_diag):
         tmp = img.copy()
         row = 0
@@ -100,8 +101,9 @@ def better_diag_occ(img, n_diag=10):
             if row >= 160:
                 break
         yield tmp,it,i,line_angle
+    
     it = 1
-    for i in range(0,int(np.ceil(160/(n_diag/line_angle)))-1):
+    for i in range(0,int(np.ceil(160/(n_diag/(line_angle/2))))-1):
         tmp = img.copy() 
         col = 0
         row = special_row
@@ -109,10 +111,11 @@ def better_diag_occ(img, n_diag=10):
         row_changed = 0
         alpha = 1
         beta = 0
-        print(special_row,row,col)
+        delta_switch = 0
+        #print(special_row,row,col)
         if special_row == 160:
             break
-        print(tmp[row,col:col+alpha-beta].size)
+        #print(tmp[row,col:col+alpha-beta].size)
         while tmp[row,col:col+alpha-beta].size: #check if array not empty
             tmp[row,col:col+alpha-beta] = colour_value
             row += 1
@@ -163,15 +166,14 @@ def visualise_occlusion(img, model, occ_type, size):
             if it == 0:
                 row = 0
                 col = i
-                delta_row = 2
                 delta_switch = 0
                 while heatmap[row,col:col+size].size: #check if array not empty
                     heatmap[row,col:col+size] = abs(out-original_prediction)
                     if np.mod(delta_switch,2):
-                        row += 1
+                        col += line_angle
                     else:
-                        row += delta_row
-                    col += line_angle
+                        col += 0
+                    row += 1
                     delta_switch += 1
                     if row>=160:
                         break
@@ -184,10 +186,17 @@ def visualise_occlusion(img, model, occ_type, size):
                     heatmap[row,col:col+alpha-beta] = abs(out-original_prediction)
                     row += 1
                     if alpha-beta > size:
-                        col += line_angle
+                        if np.mod(delta_switch,2):
+                            col += line_angle
+                        else:
+                            col += 0
                     else:
-                        beta -= line_angle
-                    if row>=160:
+                        if np.mod(delta_switch,2):
+                            beta -= line_angle
+                        else:
+                            beta -= 0
+                    delta_switch += 1
+                    if row >= 160:
                         break
             
             
@@ -221,7 +230,7 @@ def main(argv):
     model = load_model('trained_models/keras_angle_5.h5')
     #read image
     img = plt.imread(f"cropSampled/video_{img_nb}_10_crop.jpg")[:,:,0]
-    
+    '''
     for occ_img,it,i,line_angle in better_diag_occ(img,occ_size):
         plt.imshow(occ_img)
         plt.show()
@@ -234,7 +243,7 @@ def main(argv):
     point_1,point_2 = show_line(r,theta)
     plt.plot([point_2[0],point_1[0]], [point_2[1],point_1[1]], 'r-')
     plt.show()
-    '''
+    
     
 
 
@@ -248,3 +257,5 @@ if __name__ == "__main__":
 #0031_10 size 20 good_diag black
 #0032_10 size 5 square black 
 #0041_10 size 5 good_diag black 
+
+#0044 good_diag 10
