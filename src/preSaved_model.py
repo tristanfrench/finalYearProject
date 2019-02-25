@@ -50,7 +50,7 @@ def iter_occlusion(image, size=8):
 def single_square_occ(img, size=10):
     img_y,img_x = np.shape(img)
     nb_iter = int(img_y/size)
-    colour_value = 150
+    colour_value = 0
     for row in range(0,nb_iter):
         for col in range(0,nb_iter):
             tmp = img.copy()
@@ -78,25 +78,46 @@ def diag_occ(img, n_diag=16):
 
 def better_diag_occ(img, n_diag=10):
     img_y,img_x = np.shape(img)
-    line_angle = 2
+    line_angle = 3
     colour_value = 0
-    for it in range(2):
-        for i in range(0,img_y,n_diag):
-            tmp = img.copy()
-            if it == 0:
-                row = 0
-                col = i
-            else:
-                col = 0
-                row = i
-           
-            while tmp[row,col:col+n_diag].size: #check if array not empty
-                tmp[row,col:col+n_diag] = colour_value
-                row += 1
+    special_row = 0
+
+    ######################################################
+    
+    for i in range(0,img_y,n_diag):
+        tmp = img.copy()
+        row = 0
+        col = i
+        while tmp[row,col:col+n_diag].size: #check if array not empty
+            tmp[row,col:col+n_diag] = colour_value
+            row += 1
+            col += line_angle
+            if row>=160:
+                break
+        yield tmp,i,line_angle
+    
+    for i in range(0,int(np.floor(160/(n_diag/line_angle)))):
+        tmp = img.copy() 
+        col = 0
+        row = special_row
+        print(row)
+        row_changed = 0
+        alpha = 1
+        beta = 0
+        while tmp[row,col:col+alpha-beta].size: #check if array not empty
+            tmp[row,col:col+alpha-beta] = colour_value
+            row += 1
+            if alpha-beta > n_diag:
                 col += line_angle
-                if row>=160:
-                    break
-            yield tmp,it,i,line_angle
+                if row_changed == 0:
+                    special_row = row
+                    row_changed = 1
+            else:
+                beta -= line_angle
+            if row>=160:
+                break
+        yield tmp,i,line_angle
+
        
 
 def visualise_occlusion(img, model, occ_type, size):
@@ -158,19 +179,26 @@ def get_labels(img_nb):
     return labels['pose_1'][img_nb],labels['pose_6'][img_nb]
 
 def main(argv):
-    img_nb = argv
+    img_nb = argv[0]
+    occlusion_type = argv[1]
+    occ_size = int(argv[2])
     #import keras model
     model = load_model('trained_models/keras_angle_5.h5')
     #read image
     img = plt.imread(f"cropSampled/video_{img_nb}_10_crop.jpg")[:,:,0]
+    for occ_img,i,line_angle in better_diag_occ(img,occ_size):
+        plt.imshow(occ_img)
+        plt.show()
+    '''
     #occlusion algo
-    visualise_occlusion(img,model,'good_diag',20)
+    visualise_occlusion(img,model,occlusion_type,occ_size)
     #show line that shows the edge
     r,theta = get_labels(img_nb)
     print(f'r is {r}, theta is {theta}')
     point_1,point_2 = show_line(r,theta)
     plt.plot([point_2[0],point_1[0]], [point_2[1],point_1[1]], 'r-')
     plt.show()
+    '''
 
 
 
@@ -178,4 +206,8 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[1:])
+
+#0031_10 size 20 good_diag black
+#0032_10 size 5 square black 
+#0041_10 size 5 good_diag black 
