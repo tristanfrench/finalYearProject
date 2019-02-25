@@ -88,11 +88,16 @@ def better_diag_occ(img, n_diag=10):
         tmp = img.copy()
         row = 0
         col = i
+        delta_switch = 0
         while tmp[row,col:col+n_diag].size: #check if array not empty
             tmp[row,col:col+n_diag] = colour_value
+            if np.mod(delta_switch,2):
+                col += line_angle
+            else:
+                col += 0
             row += 1
-            col += line_angle
-            if row>=160:
+            delta_switch += 1
+            if row >= 160:
                 break
         yield tmp,it,i,line_angle
     it = 1
@@ -104,19 +109,28 @@ def better_diag_occ(img, n_diag=10):
         row_changed = 0
         alpha = 1
         beta = 0
+        print(special_row,row,col)
         if special_row == 160:
             break
+        print(tmp[row,col:col+alpha-beta].size)
         while tmp[row,col:col+alpha-beta].size: #check if array not empty
             tmp[row,col:col+alpha-beta] = colour_value
             row += 1
             if alpha-beta > n_diag:
-                col += line_angle
+                if np.mod(delta_switch,2):
+                    col += line_angle
+                else:
+                    col += 0
                 if row_changed == 0:
                     special_row = row
                     row_changed = 1
             else:
-                beta -= line_angle
-            if row>=160:
+                if np.mod(delta_switch,2):
+                    beta -= line_angle
+                else:
+                    beta -= 0
+            delta_switch += 1
+            if row >= 160:
                 break
         yield tmp,it,row_to_return,line_angle
 
@@ -149,10 +163,16 @@ def visualise_occlusion(img, model, occ_type, size):
             if it == 0:
                 row = 0
                 col = i
+                delta_row = 2
+                delta_switch = 0
                 while heatmap[row,col:col+size].size: #check if array not empty
                     heatmap[row,col:col+size] = abs(out-original_prediction)
-                    row += 1
+                    if np.mod(delta_switch,2):
+                        row += 1
+                    else:
+                        row += delta_row
                     col += line_angle
+                    delta_switch += 1
                     if row>=160:
                         break
             else:
