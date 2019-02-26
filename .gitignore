@@ -1,0 +1,7 @@
+__pycache_
+*.docx
+*~
+*pdf
+.txt
+image_stuff/
+progress_forms/
