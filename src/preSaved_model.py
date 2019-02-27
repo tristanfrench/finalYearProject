@@ -47,21 +47,7 @@ def iter_occlusion(image, size=8):
 
             yield x - occlusion_padding, y - occlusion_padding, \
                 tmp[occlusion_padding:tmp.shape[0] - occlusion_padding, occlusion_padding:tmp.shape[1] - occlusion_padding]
-def single_square_occ(img, size=10):
-    img_y,img_x = np.shape(img)
-    nb_iter = int(img_y/size)
-    colour_value = 0
-    for row in range(0,nb_iter):
-        for col in range(0,nb_iter):
-            tmp = img.copy()
-            y_0 = row*size
-            y_1 = (row+1)*size 
-            x_0 = col*size
-            x_1 = (col+1)*size
-            tmp[y_0:y_1,x_0:x_1] = colour_value
-            yield tmp
-
-def diag_occ(img, n_diag=16):
+def inbuilt_diag_occ(img, n_diag=16):
     img_y,img_x = np.shape(img)
     nb_iter = int(img_y/n_diag)
     colour_value = 255
@@ -74,119 +60,99 @@ def diag_occ(img, n_diag=16):
                 else:
                     np.fill_diagonal(tmp[:,i+j:],colour_value)
             yield tmp
-
-def left_diag_occ(img, n_diag=10):
+def single_square_occ(img, direction, size=10):
+    #direction is not used here
     img_y,img_x = np.shape(img)
+    nb_iter = int(img_y/size)
+    colour_value = 0
+    for row in range(0,nb_iter):
+        for col in range(0,nb_iter):
+            tmp = img.copy()
+            y_0 = row*size
+            y_1 = (row+1)*size 
+            x_0 = col*size
+            x_1 = (col+1)*size
+            tmp[y_0:y_1,x_0:x_1] = colour_value
+            yield tmp
+def my_switch(direction,row):
+    if direction == 'left':
+        return row >= 160
+    else:
+        return row <= 0
+
+def diagonal_occ(img, direction, n_diag=10):
+    img_y,img_x = np.shape(img)
+    if direction == 'left':
+        starting_row = 0
+        delta_row = 1
+    else:
+        starting_row = img_y-1  #159
+        delta_row = -1
     line_angle = 3
     colour_value = 0
-    special_row = 0
+    #first half
     for i in range(0,img_y,n_diag):
         tmp = img.copy()
-        row = 0
+        row = starting_row
         col = i
-        delta_switch = 0
+        oscilator = 0
         while tmp[row,col:col+n_diag].size: #check if array not empty
             tmp[row,col:col+n_diag] = colour_value
-            if np.mod(delta_switch,2):
+            if np.mod(oscilator,2):
                 col += line_angle
             else:
                 col += 0
-            row += 1
-            delta_switch += 1
-            if row >= 160:
+            row += delta_row
+            oscilator += 1
+            if my_switch(direction, row):
                 break
         yield tmp
-    for i in range(0,int(np.ceil(160/(n_diag/(line_angle/2))))-1):
+    #second half
+    while True:
         tmp = img.copy() 
         col = 0
-        row = special_row
+        done = 0
+        row = starting_row
         row_changed = 0
         alpha = 1
         beta = 0
-        delta_switch = 0
-        if special_row == 160:
-            break
+        oscilator = 0
         while tmp[row,col:col+alpha-beta].size: #check if array not empty
             tmp[row,col:col+alpha-beta] = colour_value
-            row += 1
+            row += delta_row
             if alpha-beta > n_diag:
-                if np.mod(delta_switch,2):
+                if np.mod(oscilator,2):
                     col += line_angle
                 else:
                     col += 0
                 if row_changed == 0:
-                    special_row = row
+                    starting_row = row
                     row_changed = 1
             else:
-                if np.mod(delta_switch,2):
+                if np.mod(oscilator,2):
                     beta -= line_angle
                 else:
                     beta -= 0
-            delta_switch += 1
-            if row >= 160:
+                if my_switch(direction, row):
+                    done = 1
+            oscilator += 1
+            if my_switch(direction, row):
                 break
         yield tmp
 
-def right_diag_occ(img, n_diag=10):
-    img_y,img_x = np.shape(img)
-    line_angle = 3
-    colour_value = 0
-    special_row = 0
-    for i in range(0,img_y,n_diag):
-        tmp = img.copy()
-        row = img_y-1  #159
-        col = i
-        delta_switch = 0
-        while tmp[row,col:col+n_diag].size: #check if array not empty
-            tmp[row,col:col+n_diag] = colour_value
-            if np.mod(delta_switch,2):
-                col += line_angle
-            else:
-                col += 0
-            row -= 1
-            delta_switch += 1
-            if row <= 0:
-                break
-        yield tmp
-    special_row = img_y-1
-    for i in range(0,int(np.ceil(160/(n_diag/(line_angle/2))))-1):
-        tmp = img.copy() 
-        col = 0
-        row = special_row
-        row_changed = 0
-        alpha = 1
-        beta = 0
-        delta_switch = 0
-        if special_row == 0:
+        if done == 1:
             break
-        while tmp[row,col:col+alpha-beta].size: #check if array not empty
-            tmp[row,col:col+alpha-beta] = colour_value
-            row -= 1
-            if alpha-beta > n_diag:
-                if np.mod(delta_switch,2):
-                    col += line_angle
-                else:
-                    col += 0
-                if row_changed == 0:
-                    special_row = row
-                    row_changed = 1
-            else:
-                if np.mod(delta_switch,2):
-                    beta -= line_angle
-                else:
-                    beta -= 0
-            delta_switch += 1
-            if row <= 0:
-                break
-        yield tmp
 
-def visualise_occlusion(img,model, occ_type, occ_size):
+
+
+
+def visualise_occlusion(img,model, occ_type, direction, occ_size):
     fig, ax = plt.subplots()
     ax.imshow(img,cmap='gray')
     img_size = 160
     heatmap = np.zeros((img_size, img_size), np.float32)
     original_prediction = model.predict(img.reshape(1, 160,160, 1))[0][0]
-    for occ_img in occ_type(img,occ_size):
+    for occ_img in occ_type(img, direction, occ_size):
         x = occ_img.reshape(1, 160,160, 1)
         out = model.predict(x)[[0]]
         row,col = np.where(occ_img==0)
@@ -216,17 +182,18 @@ def get_labels(img_nb):
 def find_occ_type(s,theta):
     if s == 'square':
         output = single_square_occ
-    elif s == 'good_diag':
-        if theta < 0:
-            output = left_diag_occ
-        else:
-            output = right_diag_occ
+    elif s == 'diag':
+        output = diagonal_occ
     return output
 
 def main(argv):
     img_nb = argv[0]
     occ_size = int(argv[2])
     r,theta = get_labels(img_nb)
+    if theta < 0:
+        direction = 'left'
+    else:
+        direction = 'right'
     #find optimal occlusion algorithm
     occ_type = find_occ_type(argv[1], theta)
     #import keras model
@@ -241,10 +208,10 @@ def main(argv):
         plt.show()
     '''
     #occlusion algo
-    visualise_occlusion(img,model,occ_type,occ_size)
+    visualise_occlusion(img, model, occ_type, direction, occ_size)
     print(f'r is {r}, theta is {theta}')
     #show line that shows the edge
-    point_1,point_2 = show_line(r,theta)
+    point_1,point_2 = show_line(r, theta)
     plt.plot([point_2[0],point_1[0]], [point_2[1],point_1[1]], 'r-')
     plt.show()
     
