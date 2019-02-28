@@ -74,6 +74,17 @@ def single_square_occ(img, direction, size=10):
             x_1 = (col+1)*size
             tmp[y_0:y_1,x_0:x_1] = colour_value
             yield tmp
+def rect_occ(img, direction, size=10):
+    #direction is not used here
+    img_y,img_x = np.shape(img)
+    nb_iter = int(img_y/size)
+    colour_value = 0
+    for row in range(0,nb_iter):
+        tmp = img.copy()
+        y_0 = row*size
+        y_1 = (row+1)*size 
+        tmp[y_0:y_1,:] = colour_value
+        yield tmp
 def my_switch(direction,row):
     if direction == 'left':
         return row >= 160
@@ -189,6 +200,8 @@ def get_labels(img_nb):
 def find_occ_type(s,theta):
     if s == 'square':
         output = single_square_occ
+    elif s == 'rect':
+        output = rect_occ
     elif s == 'diag':
         output = diagonal_occ
     return output
@@ -210,7 +223,8 @@ def main(argv):
     #find optimal occlusion algorithm
     occ_type = find_occ_type(argv[1], theta)
     #import keras model
-    models = [load_model('trained_models/keras_angle_5.h5'),load_model('trained_models/keras_angle_40.h5'),load_model('trained_models/keras_angle_80.h5')]
+    #models = [load_model('trained_models/keras_angle_5.h5'),load_model('trained_models/keras_angle_40.h5'),load_model('trained_models/keras_angle_80.h5')]
+    models = [load_model('trained_models/keras_r_10.h5'),load_model('trained_models/keras_r_40.h5'),load_model('trained_models/keras_r_80.h5')]   
     #read image
     img = plt.imread(f"cropSampled/video_{img_nb}_10_crop.jpg")[:,:,0]
 

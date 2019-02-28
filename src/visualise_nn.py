@@ -28,7 +28,7 @@ tf.app.flags.DEFINE_integer('img_width', 160, 'Image width (default: %(default)d
 tf.app.flags.DEFINE_integer('img_height', 160, 'Image height (default: %(default)d)')
 tf.app.flags.DEFINE_integer('img_channels', 1, 'Image channels (default: %(default)d)')
 tf.app.flags.DEFINE_integer('num_classes', 1, 'Number of classes (default: %(default)d)')
-tf.app.flags.DEFINE_integer('max_epochs', 5,'Number of mini-batches to train on. (default: %(default)d)')
+tf.app.flags.DEFINE_integer('max_epochs', 80,'Number of mini-batches to train on. (default: %(default)d)')
 tf.app.flags.DEFINE_integer('log_frequency', 15,'Number of steps between logging results to the console and saving summaries (default: %(default)d)')
 tf.app.flags.DEFINE_string('log_dir', '{cwd}/logs/'.format(cwd=os.getcwd()),
 'Directory where to write event logs and checkpoint. (default: %(default)s)')
@@ -167,16 +167,17 @@ def main(_):
     print(model.evaluate_generator(test_generator, steps=test_steps))
     print(model.metrics_names)
 
-    model.save('kersa_1.h5')
+    model.save(f'trained_models/keras_r_{FLAGS.max_epochs}.h5')
 
 
     #video_2000_12_crop
+    
     img_to_see = plt.imread("cropSampled/video_0099_8_crop.jpg")
     img_occ = img_to_see[:][:,:,0]
     img_occ.setflags(write=1)
     img_occ[6:10,100:104] = 0
-    plt.imshow(img_occ,cmap='gray')
-    plt.show()
+    #plt.imshow(img_occ,cmap='gray')
+    #plt.show()
     X = img_occ.reshape(1, 160,160, 1)
     out = model.predict(X)[[0]]
     print(out)
