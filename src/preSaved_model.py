@@ -144,23 +144,24 @@ def diagonal_occ(img, direction, n_diag=10):
             break
 
 
-
-
-def visualise_occlusion(img,model, occ_type, direction, occ_size):
-    fig, ax = plt.subplots()
-    ax.imshow(img,cmap='gray')
-    img_size = 160
-    heatmap = np.zeros((img_size, img_size), np.float32)
-    original_prediction = model.predict(img.reshape(1, 160,160, 1))[0][0]
-    for occ_img in occ_type(img, direction, occ_size):
-        x = occ_img.reshape(1, 160,160, 1)
-        out = model.predict(x)[[0]]
-        row,col = np.where(occ_img==0)
-        for it in range(len(col)):
-            heatmap[row[it],col[it]] = abs(out-original_prediction)
-    ax.imshow(heatmap, alpha=0.6)
-    print(original_prediction)
-    print(np.max(heatmap),np.min(heatmap))
+def visualise_occlusion(img, models, occ_type, direction, occ_size):
+    fig, ax = plt.subplots(1,3)
+    for idx,model in enumerate(models):
+        ax[idx].imshow(img,cmap='gray')
+        img_size = 160
+        heatmap = np.zeros((img_size, img_size), np.float32)
+        original_prediction = model.predict(img.reshape(1, 160,160, 1))[0][0]
+        for occ_img in occ_type(img, direction, occ_size):
+            x = occ_img.reshape(1, 160,160, 1)
+            out = model.predict(x)[[0]]
+            row,col = np.where(occ_img==0)
+            for it in range(len(col)):
+                heatmap[row[it],col[it]] = abs(out-original_prediction)
+        ax[idx].imshow(heatmap, alpha=0.6)
+        print(original_prediction)
+        print(np.max(heatmap),np.min(heatmap))
+        print(round(np.max(heatmap),3))
+        yield original_prediction, np.max(heatmap), np.min(heatmap), ax[idx]
 
 def show_line(dis, angle):
     point = [80,80] #centre of image
@@ -174,8 +175,14 @@ def show_line(dis, angle):
     return new_point_1,new_point_2
 
 def get_labels(img_nb):
-    #import labels and return r and theta for correct image
     img_nb = int(img_nb)
+    #import labels and return r and theta for correct image
+    if img_nb == 10:
+        raise Exception(f'The image number should not be 00{img_nb} to avoid confusion.')
+    if img_nb < 10:
+        img_nb = img_nb - 1 #first video is 0001 not 0000
+    elif img_nb > 10:
+        img_nb = img_nb - 2
     labels = pd.read_csv("video_targets_minus1.csv")
     return labels['pose_1'][img_nb],labels['pose_6'][img_nb]
 
@@ -186,6 +193,12 @@ def find_occ_type(s,theta):
         output = diagonal_occ
     return output
 
+def my_pad(n):
+    n = str(n)
+    if len(n) != 4:
+        for i in range(4-len(n)):
+            n = '0' + str(n)
+    return n
 def main(argv):
     img_nb = argv[0]
     occ_size = int(argv[2])
@@ -197,9 +210,10 @@ def main(argv):
     #find optimal occlusion algorithm
     occ_type = find_occ_type(argv[1], theta)
     #import keras model
-    model = load_model('trained_models/keras_angle_5.h5')
+    models = [load_model('trained_models/keras_angle_5.h5'),load_model('trained_models/keras_angle_40.h5'),load_model('trained_models/keras_angle_80.h5')]
     #read image
     img = plt.imread(f"cropSampled/video_{img_nb}_10_crop.jpg")[:,:,0]
+
     '''
     to_show = np.zeros([160,160])
     for occ_img,it,i,line_angle in right_diag_occ(img,occ_size):
@@ -207,13 +221,16 @@ def main(argv):
         plt.imshow(to_show)
         plt.show()
     '''
-    #occlusion algo
-    visualise_occlusion(img, model, occ_type, direction, occ_size)
     print(f'r is {r}, theta is {theta}')
-    #show line that shows the edge
-    point_1,point_2 = show_line(r, theta)
-    plt.plot([point_2[0],point_1[0]], [point_2[1],point_1[1]], 'r-')
+    #occlusion algo
+    for original_prediction, max_diff, min_diff, ax in visualise_occlusion(img, models, occ_type, direction, occ_size):
+        #show line that shows the edge
+        point_1,point_2 = show_line(r, theta)
+        ax.plot([point_2[0],point_1[0]], [point_2[1],point_1[1]], 'r-')
+        ax.set_title(f'Image {img_nb} \nMin Max difference: [{min_diff} {int(max_diff)}] \nPrediction: {int(original_prediction)} Labels (r,t): {int(r)} {int(theta)}')
+    
     plt.show()
+    
     
     
 
