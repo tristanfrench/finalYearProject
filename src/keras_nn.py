@@ -57,6 +57,8 @@ def img_generator(filenames, labels, batch_size):
             batch_end += batch_size
 
 def main(argv):
+    #command line argument argv should be 'theta' or 'r'
+    
     #reset main graph
     tf.reset_default_graph()
     #Load all data
