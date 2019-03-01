@@ -12,98 +12,72 @@ import matplotlib.image as mpimg
 import math
 from matplotlib.pyplot import imshow
 from keras.callbacks import TensorBoard
-from vis.visualization import visualize_activation
-from vis.utils import utils
 from keras import activations
-from vis.visualization import visualize_saliency
+import sys
 
 
+#hyperparameters
 FLAGS = tf.app.flags.FLAGS
-#started at 13:15
-# Optimisation hyperparameters batch size was 64 for nathan
 tf.app.flags.DEFINE_integer('batch_size', 64, 'Number of examples per mini-batch (default: %(default)d)')
-tf.app.flags.DEFINE_float('learning_rate', 1e-3, 'Learning rate (default: %(default)d)')
-tf.app.flags.DEFINE_integer('img_width', 160, 'Image width (default: %(default)d)')
-tf.app.flags.DEFINE_integer('img_height', 160, 'Image height (default: %(default)d)')
-tf.app.flags.DEFINE_integer('img_channels', 1, 'Image channels (default: %(default)d)')
-tf.app.flags.DEFINE_integer('num_classes', 1, 'Number of classes (default: %(default)d)')
-tf.app.flags.DEFINE_integer('max_epochs', 50,'Number of mini-batches to train on. (default: %(default)d)')
-tf.app.flags.DEFINE_integer('log_frequency', 15,'Number of steps between logging results to the console and saving summaries (default: %(default)d)')
-tf.app.flags.DEFINE_string('log_dir', '{cwd}/logs/'.format(cwd=os.getcwd()),
-'Directory where to write event logs and checkpoint. (default: %(default)s)')
-run_log_dir = os.path.join(FLAGS.log_dir, 'ep_{ep}_bs_{bs}'.format(ep=FLAGS.max_epochs,bs=FLAGS.batch_size))
+tf.app.flags.DEFINE_integer('max_epochs', 5,'Number of mini-batches to train on. (default: %(default)d)')
 
-
-
-def readCsv(csv_file):
-    data = pd.read_csv(csv_file)
-    newData = data[['pose_1','pose_6']]
-    return newData
-def image_preprocess():
-    data_labels = readCsv("video_targets_minus1.csv")#_minus1.csv")
-    df = data_labels[['pose_1','pose_6']]
-    df.columns =['r','theta']
-
-    a=[]
+def image_preprocess(image_dir, label_dir, feature):
+    '''
+    Returns image names and labels.
+    Image names returned are strings with name of image folder such as: 'cropSampled/video_0001_10_crop.jpg'.
+    '''
+    #labels
+    labels = pd.read_csv("video_targets_minus1.csv")
+    if feature == 'r':
+        labels = labels['pose_1'].values
+    elif feature == 'theta':
+        labels = labels['pose_6'].values
+    #duplicate each label 5 times because we use 5 images from each video which all have the same label
     n_duplicates = 5
-    for index, row in df.iterrows():
-        for i in range(0,n_duplicates):
-            a.append([row['r'],row['theta']])       
-    new_df = pd.DataFrame(a,columns=['r','theta'])
-    np.random.seed(0)
-    #data = data.sample(frac=1).reset_index(drop=True)#shuffles data but keeps indices in place
-    mainDir = 'collectCircleTapRand_08161204'
-    imageDir = mainDir+'/extractedImages/'
-    #myPath = os.getcwd()+'/'+imageDir
-    allImages = ['cropSampled/'+f for f in listdir(os.getcwd()+'/'+'cropSampled'+'/') if isfile(join(os.getcwd()+'/'+'cropSampled'+'/', f))]
-    new_df = np.transpose(new_df.as_matrix(columns=new_df.columns[:1]))
-    return allImages,new_df
-def parse_function(filename, label):
-    image_string = tf.read_file(filename)
-    image_decoded = tf.image.decode_jpeg(image_string, channels=1)
-    image = tf.cast(image_decoded, tf.float32)
-    return image, label
+    labels=[i for i in labels for _ in np.arange(n_duplicates)] 
+    #images
+    all_image_names = [image_dir+img_name for img_name in listdir(os.getcwd()+'/'+image_dir)]
+    return all_image_names, labels
 
-def read_images(images):
-    return mpimg.imread(images)[:,:,0]
 def img_generator(filenames, labels, batch_size):
+    '''
+    Returns batches of (images,labels)
+    '''
     L = len(filenames)
-
     #this line is just to make the generator infinite, keras needs that    
     while True:
-
         batch_start = 0
         batch_end = batch_size
-
         while batch_start < L:
             limit = min(batch_end, L)
             X = np.array([mpimg.imread(img)[:,:,0] for img in filenames[batch_start:limit]]).reshape(-1,160,160,1)
             Y = np.array(labels[batch_start:limit])
-
-            yield (X,Y) #a tuple with two numpy arrays with batch_size samples     
-
+            yield (X,Y)   
             batch_start += batch_size   
             batch_end += batch_size
 
-def main(_):
+def main(argv):
+    #reset main graph
     tf.reset_default_graph()
-    images,labels = image_preprocess()
-    labels = labels[0]
-    print(len(labels))
+    #Load all data
+    image_dir = 'cropSampled/'
+    label_dir = 'video_targets_minus1.csv'
+    images, labels = image_preprocess(image_dir, label_dir, argv[0])
+    #shuffle all data, labels and images shuffled in same way by keeping same seed
     rng = np.random.randint(1000)
     np.random.seed(rng)
     np.random.shuffle(images)
     np.random.seed(rng)
     np.random.shuffle(labels)
+    #train/test/validation set
     train_data_images = images[:7500]
     train_data_labels = labels[:7500]
     val_data_images = images[7500:8750]
     val_data_labels = labels[7500:8750]
-    #test_data_images = images[8750:]
-    #test_data_labels = labels[8750:]
-    test_data_images = images[9929:]
-    test_data_labels = labels[9929:]  
-
+    test_data_images = images[8750:]
+    test_data_labels = labels[8750:]
+ 
+    #model architecture
     model = keras.Sequential()
     #Conv1
     model.add(Conv2D(8, kernel_size=5, padding='SAME', activation='relu',input_shape=(160,160,1),name='conv1'))
@@ -124,46 +98,35 @@ def main(_):
     #Dense2
     model.add(Dense(1,name="preds"))
     #optimizer and loss
-    print('here')
     model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+
+    #create generators
     train_generator = img_generator(train_data_images,train_data_labels,FLAGS.batch_size)
     val_generator = img_generator(val_data_images,val_data_labels,FLAGS.batch_size)
     test_generator = img_generator(test_data_images,test_data_labels,FLAGS.batch_size)
-
+    #define logs directory for tensorboard
+    tensorboard = TensorBoard(log_dir="logs/keras_runs")
+    #define steps
     steps_per_epoch = math.ceil(len(train_data_images)/FLAGS.batch_size)
     val_steps = math.ceil(len(val_data_images)/FLAGS.batch_size)
-    tensorboard = TensorBoard(log_dir="logs/keras_runs")
+    #Training
     model.fit_generator(train_generator, steps_per_epoch=steps_per_epoch, epochs=FLAGS.max_epochs, validation_data=val_generator, validation_steps=val_steps, verbose=1, callbacks=[tensorboard])
+    #Evaluation
     test_steps = len(test_data_images)/FLAGS.batch_size
- 
     print(model.evaluate_generator(test_generator, steps=test_steps))
     print(model.metrics_names)
-
-    #print(model.predict_generator(test_generator, steps=test_steps))
-    #print(test_data_labels)
-    #print(np.mean(abs(np.transpose(np.array(model.predict_generator(test_generator, steps=test_steps)))-np.array(test_data_labels))))
+    
+    '''
+    #check a prediction:
+    img_to_see = plt.imread("cropSampled/video_1794_8_crop.jpg")[:][:,:,0]
+    X = img_to_see.reshape(1, 160,160, 1)
+    out = model.predict(X)[[0]]
+    print(out) 
+    '''
     
 
 
 
-    #plt.rcParams['figure.figsize'] = (18, 6)
-
-    # Utility to search for layer index by name.
-    # Alternatively we can specify this as -1 since it corresponds to the last layer.
-    layer_idx = utils.find_layer_idx(model, 'conv1')
-
-    # Swap softmax with linear
-    #model.layers[layer_idx].activation = activations.linear
-    #model = utils.apply_modifications(model)
-
-    # This is the output node we want to maximize.
-    #filter_idx = 0
-    img = visualize_activation(model, layer_idx,filter_indices=[0])
-    print(np.shape(img))
-    plt.imshow(img[..., 0])
-    plt.show()
-
-
 
 if __name__ == '__main__':
-    tf.app.run(main=main)
+    main(sys.argv[1:])
