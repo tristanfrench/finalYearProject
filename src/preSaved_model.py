@@ -173,6 +173,25 @@ def visualise_occlusion(img, models, occ_type, direction, occ_size):
         print(np.max(heatmap),np.min(heatmap))
         print(round(np.max(heatmap),3))
         yield original_prediction, np.max(heatmap), np.min(heatmap), ax[idx]
+        
+def occ_single_model(img, models, occ_type, direction, occ_size):
+    
+    for idx,model in enumerate(models):
+        plt.imshow(img,cmap='gray')
+        img_size = 160
+        heatmap = np.zeros((img_size, img_size), np.float32)
+        original_prediction = model.predict(img.reshape(1, 160,160, 1))[0][0]
+        for occ_img in occ_type(img, direction, occ_size):
+            x = occ_img.reshape(1, 160,160, 1)
+            out = model.predict(x)[[0]]
+            row,col = np.where(occ_img==0)
+            for it in range(len(col)):
+                heatmap[row[it],col[it]] = abs(out-original_prediction)
+        plt.imshow(heatmap, alpha=0.6)
+        print(original_prediction)
+        print(np.max(heatmap),np.min(heatmap))
+        print(round(np.max(heatmap),3))
+        yield original_prediction, np.max(heatmap), np.min(heatmap)
 
 def show_line(dis, angle):
     point = [80,80] #centre of image
@@ -214,29 +233,36 @@ def my_pad(n):
     return n
 def main(argv):
     img_nb = argv[0]
-    occ_size = int(argv[2])
+    occ_size = int(argv[1])
     r,theta = get_labels(img_nb)
-    if theta < 0:
+    if theta < -15:
         direction = 'left'
-    else:
+        occ_type = diagonal_occ
+    elif theta > 15:
         direction = 'right'
+        occ_type = diagonal_occ
+    else:
+        direction = 0
+        occ_type = rect_occ
     #find optimal occlusion algorithm
-    occ_type = find_occ_type(argv[1], theta)
+    #occ_type = find_occ_type(argv[1], theta)
     #import keras model
-    #models = [load_model('trained_models/keras_angle_5.h5'),load_model('trained_models/keras_angle_40.h5'),load_model('trained_models/keras_angle_80.h5')]
-    models = [load_model('trained_models/keras_r_10.h5'),load_model('trained_models/keras_r_40.h5'),load_model('trained_models/keras_r_80.h5')]   
+    models = [load_model('trained_models/keras_angle_5.h5'),load_model('trained_models/keras_angle_40.h5'),load_model('trained_models/keras_angle_80.h5')]
+    #models = [load_model('trained_models/keras_r_10.h5'),load_model('trained_models/keras_r_40.h5'),load_model('trained_models/keras_r_80.h5')]   
+    #models = [load_model('trained_models/keras_angle_40.h5')]
     #read image
     img = plt.imread(f"cropSampled/video_{img_nb}_10_crop.jpg")[:,:,0]
 
     '''
-    to_show = np.zeros([160,160])
-    for occ_img,it,i,line_angle in right_diag_occ(img,occ_size):
-        row,col = np.where(occ_img==0)
-        plt.imshow(to_show)
+    for occ_img in diagonal_occ(img, direction, occ_size):
+        fig, ax = plt.subplots(1,2)
+        ax[0].imshow(img,cmap='gray')
+        ax[1].imshow(occ_img,cmap='gray')
         plt.show()
     '''
     print(f'r is {r}, theta is {theta}')
     #occlusion algo
+    
     for original_prediction, max_diff, min_diff, ax in visualise_occlusion(img, models, occ_type, direction, occ_size):
         #show line that shows the edge
         point_1,point_2 = show_line(r, theta)
@@ -244,7 +270,14 @@ def main(argv):
         ax.set_title(f'Image {img_nb} \nMin Max difference: [{min_diff} {int(max_diff)}] \nPrediction: {int(original_prediction)} Labels (r,t): {int(r)} {int(theta)}')
     
     plt.show()
+    '''
+    for original_prediction, max_diff, min_diff in occ_single_model(img, models, occ_type, direction, occ_size):
+        #show line that shows the edge
+        point_1,point_2 = show_line(r, theta)
+        plt.plot([point_2[0],point_1[0]], [point_2[1],point_1[1]], 'r-')
     
+    plt.show()
+    '''
     
     
 
