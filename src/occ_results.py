@@ -204,7 +204,7 @@ def my_pad(n):
             n = '0' + str(n)
     return n
 def get_images_list(nb_of_images):
-    img_list = np.random.randint(0,2000,int(nb_of_images))
+    img_list = np.random.randint(1,2000,int(nb_of_images))
     #remove 10 if present
     if 10 in img_list:
         index = np.argwhere(img_list==10)
@@ -215,7 +215,7 @@ def get_images_list(nb_of_images):
 def get_models():
     #models = [load_model('trained_models/keras_angle_5.h5'),load_model('trained_models/keras_angle_40.h5'),load_model('trained_models/keras_angle_80.h5')]
     #models = [load_model('trained_models/keras_r_10.h5'),load_model('trained_models/keras_r_40.h5'),load_model('trained_models/keras_r_80.h5')]   
-    models = load_model('trained_models/keras_angle_80.h5')
+    models = load_model('trained_models/keras_theta_80_second.h5')
     return models
 def main(argv):
     nb_of_images = argv[0]
@@ -239,13 +239,7 @@ def main(argv):
         except:
             #print('Image not found')
             continue
-        '''
-        for occ_img in diagonal_occ(img, direction, occ_size):
-            fig, ax = plt.subplots(1,2)
-            ax[0].imshow(img,cmap='gray')
-            ax[1].imshow(occ_img,cmap='gray')
-            plt.show()
-        '''
+
         #occlusion algo
         original_prediction, max_diff, min_diff, diag_values, heatmap = visualise_occlusion(img, models, occ_type, direction, occ_size)
         #show line that shows the edge
@@ -265,7 +259,7 @@ def main(argv):
             print(mid_point)
             print('acc=',temp_acc)
             #show
-            plt.show()
+            #plt.show()
         '''
         #progress
         progress += 1
@@ -282,3 +276,5 @@ if __name__ == "__main__":
 #0041_10 size 5 good_diag black 
 
 #0044 good_diag 10
+
+#angle:.33 .48

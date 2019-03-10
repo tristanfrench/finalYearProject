@@ -19,7 +19,7 @@ import sys
 #hyperparameters
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_integer('batch_size', 64, 'Number of examples per mini-batch (default: %(default)d)')
-tf.app.flags.DEFINE_integer('max_epochs', 1,'Number of mini-batches to train on. (default: %(default)d)')
+tf.app.flags.DEFINE_integer('max_epochs', 10,'Number of mini-batches to train on. (default: %(default)d)')
 
 def image_preprocess(image_dir, label_dir, feature):
     '''
@@ -32,6 +32,8 @@ def image_preprocess(image_dir, label_dir, feature):
         labels = labels['pose_1'].values
     elif feature == 'theta':
         labels = labels['pose_6'].values
+    else:
+        raise Exception('Invalid Argument. Only r and theta are valid arguments')
     #duplicate each label 5 times because we use 5 images from each video which all have the same label
     n_duplicates = 5
     labels=[i for i in labels for _ in np.arange(n_duplicates)] 
@@ -60,7 +62,7 @@ def main(argv):
     #command line argument argv should be 'theta' or 'r'
     
     #reset main graph
-    tf.reset_default_graph()
+    tf.keras.backend.clear_session()
     #Load all data
     image_dir = 'cropSampled/'
     label_dir = 'video_targets_minus1.csv'
@@ -118,7 +120,7 @@ def main(argv):
     print(model.evaluate_generator(test_generator, steps=test_steps))
     print(model.metrics_names)
     
-    model.save(f'trained_models/keras_r_{FLAGS.max_epochs}_second.h5')
+    model.save(f'trained_models/keras_{argv[0]}_{FLAGS.max_epochs}_second.h5')
     '''
     #check a prediction:
     img_to_see = plt.imread("cropSampled/video_1794_8_crop.jpg")[:][:,:,0]
