@@ -115,7 +115,7 @@ def diagonal_occ(img, direction, n_diag=10):
 
 
 def visualise_occlusion(img, model, occ_type, direction, occ_size):
-    plt.imshow(img,cmap='gray')
+    #plt.imshow(img,cmap='gray')
     img_size = 160
     heatmap = np.zeros((img_size, img_size), np.float32)
     original_prediction = model.predict(img.reshape(1, 160,160, 1))[0][0]
@@ -133,7 +133,7 @@ def visualise_occlusion(img, model, occ_type, direction, occ_size):
         row,col = np.where(occ_img==0)
         for it in range(len(col)):
             heatmap[row[it],col[it]] = diff
-    plt.imshow(heatmap, alpha=0.6)
+    #plt.imshow(heatmap, alpha=0.6)
     #print(original_prediction)
     #print(np.max(heatmap),np.min(heatmap))
     #print(round(np.max(heatmap),3))
@@ -150,7 +150,7 @@ def show_line(dis, angle):
     new_point_2 = [perpen_point[0]-x*np.cos(angle),perpen_point[1]-x*np.sin(angle)]
     return new_point_1,new_point_2
 
-def get_labels(img_nb):
+def get_labels(labels,img_nb):
     img_nb = int(img_nb)
     #import labels and return r and theta for correct image
     if img_nb == 10:
@@ -159,8 +159,11 @@ def get_labels(img_nb):
         img_nb = img_nb - 1 #first video is 0001 not 0000
     elif img_nb > 10:
         img_nb = img_nb - 2
-    labels = pd.read_csv("video_targets_minus1.csv")
-    return labels['pose_1'][img_nb],labels['pose_6'][img_nb]
+    
+    try:
+        return labels['pose_1'][img_nb],labels['pose_6'][img_nb]
+    except:
+        print(img_nb)
 
 
 def get_midpoint(a,b):
@@ -194,11 +197,6 @@ def get_occ_type(theta):
         direction = 0
         occ_type = rect_occ
     return direction,occ_type
-def get_models():
-    #models = [load_model('trained_models/keras_angle_5.h5'),load_model('trained_models/keras_angle_40.h5'),load_model('trained_models/keras_angle_80.h5')]
-    #models = [load_model('trained_models/keras_r_10.h5'),load_model('trained_models/keras_r_40.h5'),load_model('trained_models/keras_r_80.h5')]   
-    models = load_model('trained_models/keras_angle_5.h5')
-    return models
 def my_pad(n):
     n = str(n)
     if len(n) != 4:
@@ -207,10 +205,18 @@ def my_pad(n):
     return n
 def get_images_list(nb_of_images):
     img_list = np.random.randint(0,2000,int(nb_of_images))
+    #remove 10 if present
+    if 10 in img_list:
+        index = np.argwhere(img_list==10)
+        img_list = np.delete(img_list, index)
     img_list = list(map(my_pad,img_list))
     return img_list
-def get_progress(pr)
 
+def get_models():
+    #models = [load_model('trained_models/keras_angle_5.h5'),load_model('trained_models/keras_angle_40.h5'),load_model('trained_models/keras_angle_80.h5')]
+    #models = [load_model('trained_models/keras_r_10.h5'),load_model('trained_models/keras_r_40.h5'),load_model('trained_models/keras_r_80.h5')]   
+    models = load_model('trained_models/keras_angle_80.h5')
+    return models
 def main(argv):
     nb_of_images = argv[0]
     img_list = get_images_list(nb_of_images)
@@ -218,19 +224,20 @@ def main(argv):
     occ_size = int(argv[1])
     accuracies = []
     progress = 0
+    #load keras model
+    models = get_models()
+    #load labels
+    labels = pd.read_csv("video_targets_minus1.csv")
     for img_nb in img_list:
         #get labels
-        r,theta = get_labels(img_nb)
+        r,theta = get_labels(labels,img_nb)
         #find optimal occlusion algorithm
         direction,occ_type = get_occ_type(theta)
-        #load keras model
-        models = get_models()
         #read image
-        
         try:
             img = plt.imread(f"cropSampled/video_{img_nb}_10_crop.jpg")[:,:,0]
         except:
-            print('Image not found')
+            #print('Image not found')
             continue
         '''
         for occ_img in diagonal_occ(img, direction, occ_size):
@@ -245,23 +252,27 @@ def main(argv):
         point_1,point_2 = show_line(r, theta)
         #compute and plot mid point of red line
         mid_point = get_midpoint(point_1,point_2)
-        plt.plot([point_2[0],point_1[0]], [point_2[1],point_1[1]], 'r-')
+        #plt.plot([point_2[0],point_1[0]], [point_2[1],point_1[1]], 'r-')
         #compute results of interest
         temp_acc = get_accuracy(heatmap, diag_values, mid_point)
         accuracies.append(temp_acc)
         #print values of interest
-        if len(img_list) < 2:
+        '''
+        if len(img_list) < 2000:
             print(diag_values)
+            print(np.sort(diag_values)[-3:])
             print(f'r is {r}, theta is {theta}')
             print(mid_point)
             print('acc=',temp_acc)
             #show
             plt.show()
+        '''
         #progress
         progress += 1
-        print(get_progress(progress,len(img_list) ))
+        if np.mod(progress,30) == 0:
+            print(100*progress/len(img_list))
 
-    print(accuracies)
+    print(sum(accuracies)/len(accuracies))
 
 if __name__ == "__main__":
     main(sys.argv[1:])
