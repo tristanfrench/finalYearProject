@@ -268,7 +268,7 @@ def main(argv):
         point_1,point_2 = show_line(r, theta)
         ax.plot([point_2[0],point_1[0]], [point_2[1],point_1[1]], 'r-')
         ax.set_title(f'Image {img_nb} \nMin Max difference: [{min_diff} {int(max_diff)}] \nPrediction: {int(original_prediction)} Labels (r,t): {int(r)} {int(theta)}')
-    
+
     plt.show()
     '''
     for original_prediction, max_diff, min_diff in occ_single_model(img, models, occ_type, direction, occ_size):

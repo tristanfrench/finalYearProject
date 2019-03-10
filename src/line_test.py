@@ -20,7 +20,7 @@ a=[80,80]
 angle = -44.9
 dis = 8.14
 b,c = show_line(a,dis,angle)
-img = mpimg.imread('src/cropSampled/video_0002_9_crop.jpg')  
+img = mpimg.imread('cropSampled/video_0365_10_crop.jpg')  
 plt.imshow(img,cmap='gray')
 plt.plot([c[0],b[0]], [c[1],b[1]], 'r-')
 plt.show()

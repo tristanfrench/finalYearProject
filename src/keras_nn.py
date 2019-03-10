@@ -19,7 +19,7 @@ import sys
 #hyperparameters
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_integer('batch_size', 64, 'Number of examples per mini-batch (default: %(default)d)')
-tf.app.flags.DEFINE_integer('max_epochs', 5,'Number of mini-batches to train on. (default: %(default)d)')
+tf.app.flags.DEFINE_integer('max_epochs', 1,'Number of mini-batches to train on. (default: %(default)d)')
 
 def image_preprocess(image_dir, label_dir, feature):
     '''
@@ -118,6 +118,7 @@ def main(argv):
     print(model.evaluate_generator(test_generator, steps=test_steps))
     print(model.metrics_names)
     
+    model.save(f'trained_models/keras_r_{FLAGS.max_epochs}_second.h5')
     '''
     #check a prediction:
     img_to_see = plt.imread("cropSampled/video_1794_8_crop.jpg")[:][:,:,0]
