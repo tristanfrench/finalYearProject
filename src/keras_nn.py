@@ -80,11 +80,12 @@ def main(argv):
     val_data_labels = labels[7500:8750]
     test_data_images = images[8750:]
     test_data_labels = labels[8750:]
- 
+    
+    first_kernel_shape = [5,5]
     #model architecture
     model = keras.Sequential()
     #Conv1
-    model.add(Conv2D(8, kernel_size=5, padding='SAME', activation='relu',input_shape=(160,160,1),name='conv1'))
+    model.add(Conv2D(8, kernel_size=first_kernel_shape, padding='SAME', activation='relu',input_shape=(160,160,1),name='conv1'))
     model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='SAME'))
     #Conv2
     model.add(Conv2D(16, kernel_size=5, padding='SAME', activation='relu') )
@@ -119,8 +120,8 @@ def main(argv):
     test_steps = len(test_data_images)/FLAGS.batch_size
     print(model.evaluate_generator(test_generator, steps=test_steps))
     print(model.metrics_names)
-    
-    model.save(f'trained_models/keras_{argv[0]}_{FLAGS.max_epochs}_second.h5')
+    print('first_kernel_shape',first_kernel_shape)
+    #model.save(f'trained_models/keras_{argv[0]}_{FLAGS.max_epochs}_second.h5')
     '''
     #check a prediction:
     img_to_see = plt.imread("cropSampled/video_1794_8_crop.jpg")[:][:,:,0]
@@ -135,3 +136,9 @@ def main(argv):
 
 if __name__ == '__main__':
     main(sys.argv[1:])
+
+#RESULTS
+'''
+[5,20] -> 0.32 0.25 0.29 .22 .35 .28 .31 .43 .37 .30
+[5,5]  -> 0.25 0.5 0.29 .31
+'''
