@@ -20,7 +20,23 @@ import sys
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_integer('batch_size', 64, 'Number of examples per mini-batch (default: %(default)d)')
 tf.app.flags.DEFINE_integer('max_epochs', 1,'Number of mini-batches to train on. (default: %(default)d)')
+tf.app.flags.DEFINE_integer('normalize', 1,'Normalise data or not(default: %(default)d)')
+class Label():
+    def __init__(self, x):
+        self.x = x
+        self.x_min = np.min(x)
+        self.x_max = np.max(x)
 
+    def norm(self):
+        '''
+        Normalize whole array, min max normalization
+        '''
+        return [(i-self.x_min)/(self.x_max-self.x_min) for i in self.x]
+    def __repr__(self):
+        return self.x
+
+def inverse_norm(self, x, x_max, x_min):
+    return [i*(x_max-x_min)+x_min for i in x]
 def image_preprocess(image_dir, label_dir):
     '''
     Returns image names and labels.
@@ -30,6 +46,13 @@ def image_preprocess(image_dir, label_dir):
     ground_truth = pd.read_csv("video_targets_minus1.csv")
     r = ground_truth['pose_1'].values
     theta = ground_truth['pose_6'].values
+    #instantiate class
+    r_class = Label(r)
+    theta_class = Label(theta)
+    #normalize data
+    if FLAGS.normalize:
+        r = r_class.norm
+        theta = theta_class.norm
     #define matrix containing angle and dislacement as columns
     labels = np.zeros([len(r),2])
     labels[:,0] = r
@@ -59,8 +82,6 @@ def img_generator(filenames, labels, batch_size):
             batch_end += batch_size
 
 def main(argv):
-    #command line argument argv should be 'theta' or 'r'
-    
     #reset main graph
     tf.keras.backend.clear_session()
     #Load all data
@@ -126,7 +147,9 @@ def main(argv):
     img_to_see = plt.imread("cropSampled/video_1794_8_crop.jpg")[:,:,0]
     X = img_to_see.reshape(1, 160,160, 1)
     out = model.predict(X)[0]
+    inverse_norm(out,)
     print(out) 
+    print(FLAGS.normalize,'norm')
     
     
 

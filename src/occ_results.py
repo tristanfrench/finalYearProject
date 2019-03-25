@@ -115,7 +115,6 @@ def diagonal_occ(img, direction, n_diag=10):
 
 
 def visualise_occlusion(img, model, occ_type, direction, occ_size):
-    #plt.imshow(img,cmap='gray')
     img_size = 160
     heatmap = np.zeros((img_size, img_size), np.float32)
     original_prediction = model.predict(img.reshape(1, 160,160, 1))[0][0]
@@ -133,13 +132,12 @@ def visualise_occlusion(img, model, occ_type, direction, occ_size):
         row,col = np.where(occ_img==0)
         for it in range(len(col)):
             heatmap[row[it],col[it]] = diff
-    #plt.imshow(heatmap, alpha=0.6)
     #print(original_prediction)
     #print(np.max(heatmap),np.min(heatmap))
     #print(round(np.max(heatmap),3))
     return original_prediction, np.max(heatmap), np.min(heatmap), diag_values, heatmap
 
-def show_line(dis, angle):
+def get_line(dis, angle):
     point = [80,80] #centre of image
     dis = -dis*4 #convert mm in pixel
     angle = -angle*np.pi/180 #convert deg in rad
@@ -215,11 +213,14 @@ def get_images_list(nb_of_images):
 def get_models():
     #models = [load_model('trained_models/keras_angle_5.h5'),load_model('trained_models/keras_angle_40.h5'),load_model('trained_models/keras_angle_80.h5')]
     #models = [load_model('trained_models/keras_r_10.h5'),load_model('trained_models/keras_r_40.h5'),load_model('trained_models/keras_r_80.h5')]   
-    models = load_model('trained_models/keras_theta_80_second.h5')
+    models = load_model('trained_models/keras_angle_5.h5')
     return models
 def main(argv):
     nb_of_images = argv[0]
-    img_list = get_images_list(nb_of_images)
+    if len(argv) < 3:
+        img_list = get_images_list(nb_of_images)
+    else:
+        img_list = [argv[2]]
     #width of occlusion
     occ_size = int(argv[1])
     accuracies = []
@@ -242,31 +243,44 @@ def main(argv):
 
         #occlusion algo
         original_prediction, max_diff, min_diff, diag_values, heatmap = visualise_occlusion(img, models, occ_type, direction, occ_size)
-        #show line that shows the edge
-        point_1,point_2 = show_line(r, theta)
-        #compute and plot mid point of red line
+        #get extremeties of line
+        point_1,point_2 = get_line(r, theta)
+        #compute mid point of red line
         mid_point = get_midpoint(point_1,point_2)
-        #plt.plot([point_2[0],point_1[0]], [point_2[1],point_1[1]], 'r-')
         #compute results of interest
         temp_acc = get_accuracy(heatmap, diag_values, mid_point)
         accuracies.append(temp_acc)
         #print values of interest
-        '''
-        if len(img_list) < 2000:
+        if len(img_list) < 2:
             print(diag_values)
             print(np.sort(diag_values)[-3:])
             print(f'r is {r}, theta is {theta}')
             print(mid_point)
             print('acc=',temp_acc)
-            #show
-            #plt.show()
-        '''
+            
+            
+        
         #progress
         progress += 1
         if np.mod(progress,30) == 0:
             print(100*progress/len(img_list))
 
     print(sum(accuracies)/len(accuracies))
+    '''
+    #show stuff
+    plt.figure(0)
+    plt.imshow(img,cmap='gray')
+    plt.imshow(heatmap, alpha=0.6)
+    #plt.plot(mid_point[1],mid_point[0],'r+',markersize=20,mew=2)
+    #plt.plot([point_2[0],point_1[0]], [point_2[1],point_1[1]], 'r-')
+    plt.axis('off')
+    plt.colorbar()
+    #plt.show()
+    '''
+    plt.figure(1)
+    plt.plot(np.arange(len(diag_values)), list(reversed(diag_values)))
+    plt.show()
+    
 
 if __name__ == "__main__":
     main(sys.argv[1:])
