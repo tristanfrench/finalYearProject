@@ -19,8 +19,8 @@ import sys
 #hyperparameters
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_integer('batch_size', 64, 'Number of examples per mini-batch (default: %(default)d)')
-tf.app.flags.DEFINE_integer('max_epochs', 1,'Number of mini-batches to train on. (default: %(default)d)')
-tf.app.flags.DEFINE_integer('normalize', 0,'Normalise data or not(default: %(default)d)')
+tf.app.flags.DEFINE_integer('max_epochs', 10,'Number of mini-batches to train on. (default: %(default)d)')
+tf.app.flags.DEFINE_integer('normalize', 1,'Normalise data or not(default: %(default)d)')
 class Label:
     def __init__(self, x):
         self.x = x
@@ -139,7 +139,7 @@ def main(argv):
     steps_per_epoch = math.ceil(len(train_data_images)/FLAGS.batch_size)
     val_steps = math.ceil(len(val_data_images)/FLAGS.batch_size)
     #Training
-    model.fit_generator(train_generator, steps_per_epoch=2, epochs=FLAGS.max_epochs, validation_data=val_generator, validation_steps=2, verbose=1)#, callbacks=[tensorboard])
+    model.fit_generator(train_generator, steps_per_epoch=steps_per_epoch, epochs=FLAGS.max_epochs, validation_data=val_generator, validation_steps=val_steps, verbose=1)#, callbacks=[tensorboard])
     #Evaluation
     test_steps = len(test_data_images)/FLAGS.batch_size
     #print(model.evaluate_generator(test_generator, steps=test_steps))
@@ -151,10 +151,36 @@ def main(argv):
     img_to_see = plt.imread("cropSampled/video_1794_8_crop.jpg")[:,:,0]#1.5 35.2
     X = img_to_see.reshape(1, 160,160, 1)
     out = model.predict(X)[0]
-    print(out) 
-    print(inverse_norm(out[0], r.x_mean, r.x_std), inverse_norm(out[1], theta.x_mean, theta.x_std))
+    #print(out) 
+    #print(inverse_norm(out[0], r.x_mean, r.x_std), inverse_norm(out[1], theta.x_mean, theta.x_std))
     print(FLAGS.normalize,'norm')
-    
+    results = np.zeros([1245,2])
+    my_it = 0
+    for img, y in test_generator:
+        for i in range(64):
+            #print(np.shape(img[i]))
+            #print(np.shape(y[i]))
+            try:
+                out = model.predict(img[i].reshape(-1,160,160,1))[0]
+                out[0] = inverse_norm(out[0], r.x_mean, r.x_std)
+                y[i,0] = inverse_norm(y[i,0], r.x_mean, r.x_std)
+                out[1] = inverse_norm(out[1], theta.x_mean, theta.x_std)
+                y[i,1] = inverse_norm(y[i,1], theta.x_mean, theta.x_std)
+                results[my_it] = abs(out-y[i])
+                my_it += 1
+            except Exception as e:
+                #print(e)
+                #print(my_it)
+                break
+        if my_it == 1245:
+            break
+
+
+    #results[:,0] = inverse_norm(results[:,0], r.x_mean, r.x_std)
+    #results[:,1] = inverse_norm(results[:,1], theta.x_mean, theta.x_std)
+    print(np.mean(results[:,0]), np.mean(results[:,1]))
+    #print(out,y[0,:])
+    #print(abs(out-y[0,:]))
     
 
 
