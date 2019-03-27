@@ -147,40 +147,33 @@ def main(argv):
     
     #model.save(f'trained_models/kerasdouble_{argv[0]}_{FLAGS.max_epochs}_second.h5')
     
-    #check a prediction:
-    img_to_see = plt.imread("cropSampled/video_1794_8_crop.jpg")[:,:,0]#1.5 35.2
-    X = img_to_see.reshape(1, 160,160, 1)
-    out = model.predict(X)[0]
-    #print(out) 
+    #check a single prediction:
+    #img_to_see = plt.imread("cropSampled/video_1794_8_crop.jpg")[:,:,0]#1.5 35.2
+    #X = img_to_see.reshape(1, 160,160, 1)
+    #out = model.predict(X)[0]
     #print(inverse_norm(out[0], r.x_mean, r.x_std), inverse_norm(out[1], theta.x_mean, theta.x_std))
-    print(FLAGS.normalize,'norm')
+    
     results = np.zeros([1245,2])
     my_it = 0
     for img, y in test_generator:
         for i in range(64):
-            #print(np.shape(img[i]))
-            #print(np.shape(y[i]))
             try:
                 out = model.predict(img[i].reshape(-1,160,160,1))[0]
-                out[0] = inverse_norm(out[0], r.x_mean, r.x_std)
-                y[i,0] = inverse_norm(y[i,0], r.x_mean, r.x_std)
-                out[1] = inverse_norm(out[1], theta.x_mean, theta.x_std)
-                y[i,1] = inverse_norm(y[i,1], theta.x_mean, theta.x_std)
+                if FlAGS.normalize:
+                    out[0] = inverse_norm(out[0], r.x_mean, r.x_std)
+                    y[i,0] = inverse_norm(y[i,0], r.x_mean, r.x_std)
+                    out[1] = inverse_norm(out[1], theta.x_mean, theta.x_std)
+                    y[i,1] = inverse_norm(y[i,1], theta.x_mean, theta.x_std)
                 results[my_it] = abs(out-y[i])
                 my_it += 1
             except Exception as e:
-                #print(e)
-                #print(my_it)
                 break
         if my_it == 1245:
             break
 
-
-    #results[:,0] = inverse_norm(results[:,0], r.x_mean, r.x_std)
-    #results[:,1] = inverse_norm(results[:,1], theta.x_mean, theta.x_std)
+    average error over test set
     print(np.mean(results[:,0]), np.mean(results[:,1]))
-    #print(out,y[0,:])
-    #print(abs(out-y[0,:]))
+    print(FLAGS.normalize,'norm')
     
 
 
