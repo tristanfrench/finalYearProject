@@ -91,4 +91,60 @@ class ImageLabelGenerator(object):
         val_generator = self.__double_generator(self.val_set)
         test_generator = self.__double_generator(self.test_set)
         return [train_generator, val_generator, test_generator]
+    def get_set_length(self):
+        '''
+        Return train val and test set length
+        '''
+        return len(self.train_set['labels']),len(self.val_set['labels']),len(self.test_set['labels'])
 
+class CreateKerasModel(object):
+    def __init__(self):
+        self.model = keras.Sequential()
+        self.__setup()
+    def __setup(self):
+        #Model architecture
+        #Conv1
+        self.model.add(Conv2D(8, kernel_size=5, padding='SAME', activation='relu',input_shape=(160,160,1),name='conv1'))
+        self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='SAME'))
+        #Conv2
+        self.model.add(Conv2D(16, kernel_size=5, padding='SAME', activation='relu') )
+        self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='SAME'))
+        #Conv3
+        self.model.add(Conv2D(32, kernel_size=5, padding='SAME', activation='relu') )
+        self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='SAME'))
+        #Conv4
+        self.model.add(Conv2D(32, kernel_size=5, padding='SAME', activation='relu') )
+        self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='SAME'))
+        #Flatten
+        self.model.add(Flatten())
+        #Dense1
+        self.model.add(Dense(800, activation='relu'))
+        #Dense2
+        self.model.add(Dense(1,name="preds"))
+        #optimizer and loss
+        self.model.compile(optimizer='adam', loss='mse', metrics=['mae'])
+
+    def train(self, train_generator, val_generator, test_generator, train_len, val_len, test_len):
+        #define logs directory for tensorboard
+        #tensorboard = TensorBoard(log_dir="logs/keras_runs")
+        #define steps
+        steps_per_epoch = math.ceil(train_len/FLAGS.batch_size)
+        val_steps = math.ceil(val_len/FLAGS.batch_size)
+        #Training
+        self.model.fit_generator(train_generator, steps_per_epoch=steps_per_epoch, epochs=FLAGS.max_epochs, validation_data=val_generator, validation_steps=val_steps, verbose=1)#, callbacks=[tensorboard])
+        #Evaluation
+        test_steps = test_len/FLAGS.batch_size
+        print(self.model.evaluate_generator(test_generator, steps=test_steps))
+        print(self.model.metrics_names)
+    
+
+def main(argv):
+    label_generator =  ImageLabelGenerator('cropSampled/', 'video_targets_minus1.csv', 'r')
+    train_generator, val_generator, test_generator = label_generator.get_generators()
+    keras_model = CreateKerasModel()
+    train_len, val_len, test_len = label_generator.get_set_length()
+    keras_model.train(train_generator, val_generator, test_generator, train_len, val_len, test_len)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
