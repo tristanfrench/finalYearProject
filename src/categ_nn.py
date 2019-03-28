@@ -1,8 +1,13 @@
 import tensorflow as tf
 import numpy as np
 import pandas as pd
+
 import keras
 from keras.layers import Dense, Conv2D, Flatten, MaxPooling2D
+from keras import activations
+from keras.utils import to_categorical
+#from keras.callbacks import TensorBoard
+
 import os
 import os.path
 from os import listdir
@@ -11,17 +16,16 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import math
 from matplotlib.pyplot import imshow
-from keras.callbacks import TensorBoard
-from keras import activations
+
 import sys
 
 #hyperparameters
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_integer('batch_size', 64, 'Number of examples per mini-batch (default: %(default)d)')
-tf.app.flags.DEFINE_integer('max_epochs', 10,'Number of mini-batches to train on. (default: %(default)d)')
+tf.app.flags.DEFINE_integer('max_epochs', 1,'Number of mini-batches to train on. (default: %(default)d)')
 
 class ImageLabelGenerator(object):
-    def __init__(self, image_dir, label_dir, feature):
+    def __init__(self, image_dir, label_dir, feature, categorize=1):
         #attributes
         self.image_dir = image_dir
         self.label_dir = label_dir
@@ -32,6 +36,7 @@ class ImageLabelGenerator(object):
         self.val_set = {}
         self.test_set = {}
         self.batch_size = FLAGS.batch_size
+        self.categorize = categorize
         #setup
         self.__data_setup()
     def __data_setup(self):
@@ -54,7 +59,10 @@ class ImageLabelGenerator(object):
         #images
         all_image_names = [self.image_dir+img_name for img_name in listdir(os.getcwd()+'/'+self.image_dir)]
         self.image_names = all_image_names
-        self.labels = labels 
+        if self.categorize:
+            self.labels = self.__categorize_labels(labels)
+        else:
+            self.labels = labels 
         #shuffle all data, labels and images shuffled in same way by keeping same seed
         rng = np.random.randint(1000)
         np.random.seed(rng)
@@ -66,6 +74,47 @@ class ImageLabelGenerator(object):
         self.val_set = {'images':self.image_names[7500:8750], 'labels':self.labels[7500:8750]}
         self.test_set = {'images':self.image_names[8750:], 'labels':self.labels[8750:]}
 
+    def __categorize_labels(self, label):
+        for idx,i in enumerate(label):
+            if i<-40:
+                label[idx] = 0
+            elif i<-35:
+                label[idx] = 1
+            elif i<-30:
+                label[idx] = 2
+            elif i<-25:
+                label[idx] = 3
+            elif i<-20:
+                label[idx] = 4
+            elif i<-15:
+                label[idx] = 5
+            elif i<-10:
+                label[idx] = 6
+            elif i<-5:
+                label[idx] = 7
+            elif i<0:
+                label[idx] = 8
+            elif i<5:
+                label[idx] = 9
+            elif i<10:
+                label[idx] = 10
+            elif i<15:
+                label[idx] = 11
+            elif i<20:
+                label[idx] = 12
+            elif i<25:
+                label[idx] = 13
+            elif i<30:
+                label[idx] = 14
+            elif i<35:
+                label[idx] = 15
+            elif i<40:
+                label[idx] = 16
+            else:
+                label[idx] = 17
+            #one-hot-encode labels, e.g:  2 becomes [0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            label[idx] = to_categorical(label[idx], num_classes=18)
+        return label
 
     def __double_generator(self, data):
         '''
@@ -83,6 +132,7 @@ class ImageLabelGenerator(object):
                 yield (images,labels)   
                 batch_start += self.batch_size   
                 batch_end += self.batch_size
+
     def get_generators(self):
         '''
         Returns generators for each train, validation and test set
@@ -91,6 +141,7 @@ class ImageLabelGenerator(object):
         val_generator = self.__double_generator(self.val_set)
         test_generator = self.__double_generator(self.test_set)
         return [train_generator, val_generator, test_generator]
+    
     def get_set_length(self):
         '''
         Return train val and test set length
@@ -98,10 +149,16 @@ class ImageLabelGenerator(object):
         return len(self.train_set['labels']),len(self.val_set['labels']),len(self.test_set['labels'])
 
 class CreateKerasModel(object):
-    def __init__(self):
+    def __init__(self, model_type):
         self.model = keras.Sequential()
-        self.__setup()
-    def __setup(self):
+        if model_type == 'classification':
+            self.__classification_setup()
+        elif model_type == 'regression':
+            self.__regression_setup()
+        else:
+            raise Exception(f'{model_type} is not a valid model name')
+
+    def __classification_setup(self):
         #Model architecture
         #Conv1
         self.model.add(Conv2D(8, kernel_size=5, padding='SAME', activation='relu',input_shape=(160,160,1),name='conv1'))
@@ -120,7 +177,30 @@ class CreateKerasModel(object):
         #Dense1
         self.model.add(Dense(800, activation='relu'))
         #Dense2
-        self.model.add(Dense(1,name="preds"))
+        self.model.add(Dense(18, name="preds", activation='softmax'))
+        #optimizer and loss
+        self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['categorical_accuracy'])
+
+    def __regression_setup(self):
+        #Model architecture
+        #Conv1
+        self.model.add(Conv2D(8, kernel_size=5, padding='SAME', activation='relu',input_shape=(160,160,1),name='conv1'))
+        self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='SAME'))
+        #Conv2
+        self.model.add(Conv2D(16, kernel_size=5, padding='SAME', activation='relu') )
+        self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='SAME'))
+        #Conv3
+        self.model.add(Conv2D(32, kernel_size=5, padding='SAME', activation='relu') )
+        self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='SAME'))
+        #Conv4
+        self.model.add(Conv2D(32, kernel_size=5, padding='SAME', activation='relu') )
+        self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='SAME'))
+        #Flatten
+        self.model.add(Flatten())
+        #Dense1
+        self.model.add(Dense(800, activation='relu'))
+        #Dense2
+        self.model.add(Dense(1, name='preds'))
         #optimizer and loss
         self.model.compile(optimizer='adam', loss='mse', metrics=['mae'])
 
@@ -139,11 +219,26 @@ class CreateKerasModel(object):
     
 
 def main(argv):
-    label_generator =  ImageLabelGenerator('cropSampled/', 'video_targets_minus1.csv', 'r')
+    label_generator =  ImageLabelGenerator('cropSampled/', 'video_targets_minus1.csv', 'theta', categorize=1)
     train_generator, val_generator, test_generator = label_generator.get_generators()
-    keras_model = CreateKerasModel()
+    #for i,j in test_generator:
+        #print(to_categorical(j,num_classes=18))
+    #    print(j)
+
+    model_type = 'classification'
+    keras_model = CreateKerasModel(model_type)
     train_len, val_len, test_len = label_generator.get_set_length()
+    
+
     keras_model.train(train_generator, val_generator, test_generator, train_len, val_len, test_len)
+    
+    #check a prediction:
+    img_to_see = plt.imread('cropSampled/video_1794_8_crop.jpg')[:][:,:,0]
+    X = img_to_see.reshape(1, 160,160, 1)
+    out = keras_model.model.predict(X)
+    print(out) 
+    
+
 
 
 if __name__ == '__main__':
