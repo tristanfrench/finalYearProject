@@ -22,7 +22,7 @@ import sys
 #hyperparameters
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_integer('batch_size', 64, 'Number of examples per mini-batch (default: %(default)d)')
-tf.app.flags.DEFINE_integer('max_epochs', 1,'Number of mini-batches to train on. (default: %(default)d)')
+tf.app.flags.DEFINE_integer('max_epochs', 2,'Number of mini-batches to train on. (default: %(default)d)')
 
 class ImageLabelGenerator(object):
     def __init__(self, image_dir, label_dir, feature, categorize=1):
@@ -113,7 +113,7 @@ class ImageLabelGenerator(object):
             else:
                 label[idx] = 17
             #one-hot-encode labels, e.g:  2 becomes [0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-            label[idx] = to_categorical(label[idx], num_classes=18)
+            #label[idx] = to_categorical(label[idx], num_classes=18)
         return label
 
     def __double_generator(self, data):
@@ -129,9 +129,13 @@ class ImageLabelGenerator(object):
                 limit = min(batch_end, L)
                 images = np.array([mpimg.imread(img)[:,:,0] for img in data['images'][batch_start:limit]]).reshape(-1,160,160,1)
                 labels = np.array(data['labels'][batch_start:limit])
+
                 yield (images,labels)   
                 batch_start += self.batch_size   
                 batch_end += self.batch_size
+    
+    def decode_hot(self, labels):
+        return -45+labels*5
 
     def get_generators(self):
         '''
@@ -177,9 +181,9 @@ class CreateKerasModel(object):
         #Dense1
         self.model.add(Dense(800, activation='relu'))
         #Dense2
-        self.model.add(Dense(18, name="preds", activation='softmax'))
+        self.model.add(Dense(1, name="preds"))
         #optimizer and loss
-        self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['categorical_accuracy'])
+        self.model.compile(optimizer='adam', loss='mse', metrics=['sparse_categorical_accuracy'])
 
     def __regression_setup(self):
         #Model architecture
@@ -221,10 +225,6 @@ class CreateKerasModel(object):
 def main(argv):
     label_generator =  ImageLabelGenerator('cropSampled/', 'video_targets_minus1.csv', 'theta', categorize=1)
     train_generator, val_generator, test_generator = label_generator.get_generators()
-    #for i,j in test_generator:
-        #print(to_categorical(j,num_classes=18))
-    #    print(j)
-
     model_type = 'classification'
     keras_model = CreateKerasModel(model_type)
     train_len, val_len, test_len = label_generator.get_set_length()
@@ -236,7 +236,12 @@ def main(argv):
     img_to_see = plt.imread('cropSampled/video_1794_8_crop.jpg')[:][:,:,0]
     X = img_to_see.reshape(1, 160,160, 1)
     out = keras_model.model.predict(X)
-    print(out) 
+    print(label_generator.decode_hot(out)) 
+    img_to_see = plt.imread('cropSampled/video_0794_9_crop.jpg')[:][:,:,0]
+    X = img_to_see.reshape(1, 160,160, 1)
+    out = keras_model.model.predict(X)
+    #keras_model.model.save(f'trained_models/categ.h5')
+    print(label_generator.decode_hot(out)) 
     
 
 
