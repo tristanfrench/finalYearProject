@@ -7,6 +7,7 @@ from keras.layers import Dense, Conv2D, Flatten, MaxPooling2D
 from keras import activations
 from keras.utils import to_categorical
 #from keras.callbacks import TensorBoard
+from sklearn.model_selection import KFold
 
 import os
 import os.path
@@ -33,10 +34,10 @@ class ImageLabelGenerator(object):
         self.image_names = None
         self.labels = None
         self.train_set = {}
-        self.val_set = {}
         self.test_set = {}
         self.batch_size = FLAGS.batch_size
         self.categorize = categorize
+
         #setup
         self.__data_setup()
     def __data_setup(self):
@@ -64,16 +65,19 @@ class ImageLabelGenerator(object):
         else:
             self.labels = labels 
         #shuffle all data, labels and images shuffled in same way by keeping same seed
+        self.__shuffle_data()
+
+        #train/test/validation set
+        #self.train_set = {'images':self.image_names[:7500], 'labels':self.labels[:7500]}
+        #self.val_set = {'images':self.image_names[7500:8750], 'labels':self.labels[7500:8750]}
+        #self.test_set = {'images':self.image_names[8750:], 'labels':self.labels[8750:]}
+
+    def __shuffle_data(self):
         rng = np.random.randint(1000)
         np.random.seed(rng)
         np.random.shuffle(self.image_names)
         np.random.seed(rng)
         np.random.shuffle(self.labels)
-        #train/test/validation set
-        self.train_set = {'images':self.image_names[:7500], 'labels':self.labels[:7500]}
-        self.val_set = {'images':self.image_names[7500:8750], 'labels':self.labels[7500:8750]}
-        self.test_set = {'images':self.image_names[8750:], 'labels':self.labels[8750:]}
-
     def __categorize_labels(self, label):
         if self.feature == 'theta':
             for idx,i in enumerate(label):
@@ -170,33 +174,38 @@ class ImageLabelGenerator(object):
         else:
             return -6+labels
 
-    def get_generators(self):
+    def get_generators(self, train_indices, test_indices):
         '''
         Returns generators for each train, validation and test set
         '''
+        self.train_set = {'images':np.array(self.image_names)[train_indices],'labels':np.array(self.labels)[train_indices]}
+        self.test_set = {'images':np.array(self.image_names)[test_indices],'labels':np.array(self.labels)[test_indices]}
+
         train_generator = self.__double_generator(self.train_set)
-        val_generator = self.__double_generator(self.val_set)
         test_generator = self.__double_generator(self.test_set)
-        return [train_generator, val_generator, test_generator]
+        return [train_generator, test_generator]
     
     def get_set_length(self):
         '''
         Return train val and test set length
         '''
-        return len(self.train_set['labels']),len(self.val_set['labels']),len(self.test_set['labels'])
+        return len(self.train_set['labels']),len(self.test_set['labels'])
 
-class CreateKerasModel(object):
+class KerasModel(object):
     def __init__(self, model_type):
-        self.model = keras.Sequential()
+        self.model = None
+        '''
         if model_type == 'classification':
-            self.__classification_setup()
+            self.__create_classifier()
         elif model_type == 'regression':
-            self.__regression_setup()
+            self.__create_regressor()
         else:
             raise Exception(f'{model_type} is not a valid model name')
+        '''
 
-    def __classification_setup(self):
+    def create_classifier(self):
         #Model architecture
+        self.model = keras.Sequential()
         #Conv1
         self.model.add(Conv2D(8, kernel_size=5, padding='SAME', activation='relu',input_shape=(160,160,1),name='conv1'))
         self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='SAME'))
@@ -218,8 +227,9 @@ class CreateKerasModel(object):
         #optimizer and loss
         self.model.compile(optimizer='adam', loss='mse', metrics=['sparse_categorical_accuracy'])
 
-    def __regression_setup(self):
+    def create_regressor(self):
         #Model architecture
+        self.model = keras.Sequential()
         #Conv1
         self.model.add(Conv2D(8, kernel_size=5, padding='SAME', activation='relu',input_shape=(160,160,1),name='conv1'))
         self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2), padding='SAME'))
@@ -241,29 +251,36 @@ class CreateKerasModel(object):
         #optimizer and loss
         self.model.compile(optimizer='adam', loss='mse', metrics=['mae'])
 
-    def train(self, train_generator, val_generator, test_generator, train_len, val_len, test_len):
+    def train(self, train_generator, test_generator, train_len, test_len):
         #define logs directory for tensorboard
         #tensorboard = TensorBoard(log_dir="logs/keras_runs")
         #define steps
         steps_per_epoch = math.ceil(train_len/FLAGS.batch_size)
-        val_steps = math.ceil(val_len/FLAGS.batch_size)
         #Training
-        self.model.fit_generator(train_generator, steps_per_epoch=steps_per_epoch, epochs=FLAGS.max_epochs, validation_data=val_generator, validation_steps=val_steps, verbose=1)#, callbacks=[tensorboard])
+        self.model.fit_generator(train_generator, steps_per_epoch=steps_per_epoch, epochs=FLAGS.max_epochs, verbose=1)#, callbacks=[tensorboard])
         #Evaluation
         test_steps = test_len/FLAGS.batch_size
         print(self.model.evaluate_generator(test_generator, steps=test_steps))
         print(self.model.metrics_names)
     
-
-def main(argv):
-    label_generator =  ImageLabelGenerator('cropSampled/', 'video_targets_minus1.csv', 'r', categorize=1)
-    train_generator, val_generator, test_generator = label_generator.get_generators()
-    model_type = 'classification'
-    keras_model = CreateKerasModel(model_type)
-    train_len, val_len, test_len = label_generator.get_set_length()
+    def kill_model(self):
+        self.model = None
     
 
-    keras_model.train(train_generator, val_generator, test_generator, train_len, val_len, test_len)
+def main(argv):
+    label_generator =  ImageLabelGenerator('cropSampled/', 'video_targets_minus1.csv', 'r', categorize=0)
+    model_type = 'regression'
+    keras_model = KerasModel(model_type)
+    kf = KFold(n_splits=10, shuffle=True)
+    for idx, (train_indices, test_indices) in enumerate(kf.split(label_generator.image_names, label_generator.labels)):
+        print('Training on fold'+str(idx+1)+'/10...')
+        # Generate batches from indices
+        train_generator, test_generator = label_generator.get_generators(train_indices, test_indices)
+        #Create model
+        keras_model.create_regressor()
+        train_len, test_len = label_generator.get_set_length()
+        keras_model.train(train_generator, test_generator, train_len, test_len)
+        keras_model.kill_model()
     
     #check a prediction:
     img_to_see = plt.imread('cropSampled/video_1794_8_crop.jpg')[:][:,:,0]
