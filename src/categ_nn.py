@@ -6,7 +6,7 @@ import keras
 from keras.layers import Dense, Conv2D, Flatten, MaxPooling2D
 from keras import activations
 from keras.utils import to_categorical
-#from keras.callbacks import TensorBoard
+from keras.callbacks import TensorBoard
 
 import os
 import os.path
@@ -243,12 +243,12 @@ class CreateKerasModel(object):
 
     def train(self, train_generator, val_generator, test_generator, train_len, val_len, test_len):
         #define logs directory for tensorboard
-        #tensorboard = TensorBoard(log_dir="logs/keras_runs")
+        tensorboard = TensorBoard(log_dir="logs/keras_runs")
         #define steps
         steps_per_epoch = math.ceil(train_len/FLAGS.batch_size)
         val_steps = math.ceil(val_len/FLAGS.batch_size)
         #Training
-        self.model.fit_generator(train_generator, steps_per_epoch=steps_per_epoch, epochs=FLAGS.max_epochs, validation_data=val_generator, validation_steps=val_steps, verbose=1)#, callbacks=[tensorboard])
+        self.model.fit_generator(train_generator, steps_per_epoch=steps_per_epoch, epochs=FLAGS.max_epochs, validation_data=val_generator, validation_steps=val_steps, verbose=1, callbacks=[tensorboard])
         #Evaluation
         test_steps = test_len/FLAGS.batch_size
         print(self.model.evaluate_generator(test_generator, steps=test_steps))
@@ -256,9 +256,9 @@ class CreateKerasModel(object):
     
 
 def main(argv):
-    label_generator =  ImageLabelGenerator('cropSampled/', 'video_targets_minus1.csv', 'r', categorize=1)
+    label_generator =  ImageLabelGenerator('cropSampled/', 'video_targets_minus1.csv', 'r', categorize=0)
     train_generator, val_generator, test_generator = label_generator.get_generators()
-    model_type = 'classification'
+    model_type = 'regression'
     keras_model = CreateKerasModel(model_type)
     train_len, val_len, test_len = label_generator.get_set_length()
     
