@@ -23,7 +23,7 @@ import sys
 #hyperparameters
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_integer('batch_size', 64, 'Number of examples per mini-batch (default: %(default)d)')
-tf.app.flags.DEFINE_integer('max_epochs', 100,'Number of mini-batches to train on. (default: %(default)d)')
+tf.app.flags.DEFINE_integer('max_epochs', 10,'Number of mini-batches to train on. (default: %(default)d)')
 
 class ImageLabelGenerator(object):
     def __init__(self, image_dir, label_dir, feature, categorize=1):
@@ -308,9 +308,12 @@ if __name__ == '__main__':
 
 
 #results:
+#10ep r [0.23, 0.32, 0.50, 0.26, 0.27, 0.36, 0.36, 0.24, 0.28, 0.36]
 #50ep r [0.74,0.28,0.45,0.24,0.16,0.19,0.21,0.13,0.13,0.16] mean 0.27 median 0.2
+#100 ep r [0.21, 0.16, 0.14, 0.33, 0.17, 0.21, 0.27, 0.16, 0.25, 0.14]
+
+#10ep theta [1.80, 2.26, 2.52, 1.31, 1.40, 1.61, 1.73, 1.63, 1.77, 1.49]
 #50ep theta[0.82, 22.37, 1.59, 0.912, 22.57, 22.85, 1.02, 1.68, 1.05, 1.11]
-#100 ep r .17 .17 .31
 #100 ep theta [0.74, 0.99, 22.91, 0.90, 0.90, 1.023, 0.88, 1.47, 1.03, 0.92]
 #weird result: theta
 # [14.199, 2.9977, 2.3615, 2.0212, 1.8409, 1.6869, 1.5961, 1.5314, 1.5186, 1.4498, 1.3962, 1.5541, 1.4422, 1.3437, 1.3566, 1.3889, 1.365, 1.2986, 1.2142, 1.1465, 1.065, 1.0597, 1.0214, 1.0102, 0.9744, 0.9719, 0.9659, 0.9788, 0.9693, 1.0334, 2.9091, 22.4753, 22.4766, 22.4772, 22.4775, 22.4776, 22.4777, 22.4777, 22.4777, 22.4777, 22.4778, 22.4778, 22.4778, 22.4778, 22.4778, 22.4778, 22.4777, 22.4777, 22.4777, 22.4777] 

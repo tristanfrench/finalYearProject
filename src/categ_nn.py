@@ -3,10 +3,12 @@ import numpy as np
 import pandas as pd
 
 import keras
+#from tensorflow import keras
 from keras.layers import Dense, Conv2D, Flatten, MaxPooling2D
 from keras import activations
 from keras.utils import to_categorical
-from keras.callbacks import TensorBoard
+#from keras.callbacks import TensorBoard
+import pickle
 
 import os
 import os.path
@@ -22,7 +24,7 @@ import sys
 #hyperparameters
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_integer('batch_size', 64, 'Number of examples per mini-batch (default: %(default)d)')
-tf.app.flags.DEFINE_integer('max_epochs', 10,'Number of mini-batches to train on. (default: %(default)d)')
+tf.app.flags.DEFINE_integer('max_epochs', 500,'Number of mini-batches to train on. (default: %(default)d)')
 
 class ImageLabelGenerator(object):
     def __init__(self, image_dir, label_dir, feature, categorize=1):
@@ -188,6 +190,7 @@ class ImageLabelGenerator(object):
 class CreateKerasModel(object):
     def __init__(self, model_type):
         self.model = keras.Sequential()
+        self.history = None
         if model_type == 'classification':
             self.__classification_setup()
         elif model_type == 'regression':
@@ -243,12 +246,12 @@ class CreateKerasModel(object):
 
     def train(self, train_generator, val_generator, test_generator, train_len, val_len, test_len):
         #define logs directory for tensorboard
-        tensorboard = TensorBoard(log_dir="logs/keras_runs")
+        #tensorboard = TensorBoard(log_dir="logs/keras_runs")
         #define steps
         steps_per_epoch = math.ceil(train_len/FLAGS.batch_size)
         val_steps = math.ceil(val_len/FLAGS.batch_size)
         #Training
-        self.model.fit_generator(train_generator, steps_per_epoch=steps_per_epoch, epochs=FLAGS.max_epochs, validation_data=val_generator, validation_steps=val_steps, verbose=1, callbacks=[tensorboard])
+        self.history = self.model.fit_generator(train_generator, steps_per_epoch=steps_per_epoch, epochs=FLAGS.max_epochs, validation_data=val_generator, validation_steps=val_steps, verbose=2)#, callbacks=[tensorboard])
         #Evaluation
         test_steps = test_len/FLAGS.batch_size
         print(self.model.evaluate_generator(test_generator, steps=test_steps))
@@ -256,7 +259,7 @@ class CreateKerasModel(object):
     
 
 def main(argv):
-    label_generator =  ImageLabelGenerator('cropSampled/', 'video_targets_minus1.csv', 'r', categorize=0)
+    label_generator =  ImageLabelGenerator('cropSampled/', 'video_targets_minus1.csv', 'theta', categorize=0)
     train_generator, val_generator, test_generator = label_generator.get_generators()
     model_type = 'regression'
     keras_model = CreateKerasModel(model_type)
@@ -275,6 +278,25 @@ def main(argv):
     out = keras_model.model.predict(X)
     #keras_model.model.save(f'trained_models/categ.h5')
     print(label_generator.decode_hot(out)) 
+    print(keras_model.history.history.keys())
+    plt.plot(keras_model.history.history['loss'][1:])
+    print(keras_model.history.history['mean_absolute_error'])
+    '''
+    plt.plot(keras_model.history.history['val_loss'][1:])
+    plt.legend(['Train', 'Validation'], loc='upper left')
+    plt.ylabel('Mean Squared Error Loss')
+    plt.xlabel('Number of Epochs')
+    plt.show()  
+    '''
+    print(keras_model.history.history['val_mean_absolute_error'])
+    
+    #save results
+    
+    with open('train_500_theta_error.pickle', 'wb') as fp:
+        pickle.dump(keras_model.history.history['mean_absolute_error'], fp)
+    with open('val_500_theta2_error.pickle', 'wb') as fp:
+        pickle.dump(keras_model.history.history['val_mean_absolute_error'], fp)
+    
     
 
 
