@@ -20,7 +20,7 @@ import sys
 #hyperparameters
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_integer('batch_size', 64, 'Number of examples per mini-batch (default: %(default)d)')
-tf.app.flags.DEFINE_integer('max_epochs', 10,'Number of mini-batches to train on. (default: %(default)d)')
+tf.app.flags.DEFINE_integer('max_epochs', 1,'Number of mini-batches to train on. (default: %(default)d)')
 
 def image_preprocess(image_dir, label_dir, feature):
     '''
@@ -82,7 +82,7 @@ def main(argv):
     test_data_images = images[8750:]
     test_data_labels = labels[8750:]
     
-    first_kernel_shape = [5,5]
+    first_kernel_shape = [2,2]
     #model architecture
     model = keras.Sequential()
     #Conv1
@@ -111,18 +111,19 @@ def main(argv):
     val_generator = img_generator(val_data_images,val_data_labels,FLAGS.batch_size)
     test_generator = img_generator(test_data_images,test_data_labels,FLAGS.batch_size)
     #define logs directory for tensorboard
-    #tensorboard = TensorBoard(log_dir="logs/keras_runs")
+    tensorboard = TensorBoard(log_dir="logs/keras_runs")
     #define steps
     steps_per_epoch = math.ceil(len(train_data_images)/FLAGS.batch_size)
     val_steps = math.ceil(len(val_data_images)/FLAGS.batch_size)
     #Training
-    model.fit_generator(train_generator, steps_per_epoch=steps_per_epoch, epochs=FLAGS.max_epochs, validation_data=val_generator, validation_steps=val_steps, verbose=1)#, callbacks=[tensorboard])
+    model.fit_generator(train_generator, steps_per_epoch=steps_per_epoch, epochs=FLAGS.max_epochs, validation_data=val_generator, validation_steps=val_steps, verbose=1, callbacks=[tensorboard])
     #Evaluation
     test_steps = len(test_data_images)/FLAGS.batch_size
     print(model.evaluate_generator(test_generator, steps=test_steps))
     print(model.metrics_names)
     print('first_kernel_shape',first_kernel_shape)
     #model.save(f'trained_models/keras_{argv[0]}_{FLAGS.max_epochs}_second.h5')
+    #model.save(f'trained_models/tbtest/lol.h5')
     '''
     #check a prediction:
     img_to_see = plt.imread("cropSampled/video_1794_8_crop.jpg")[:][:,:,0]

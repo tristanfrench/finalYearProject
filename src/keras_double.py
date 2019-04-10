@@ -159,7 +159,7 @@ def main(argv):
         for i in range(64):
             try:
                 out = model.predict(img[i].reshape(-1,160,160,1))[0]
-                if FlAGS.normalize:
+                if FLAGS.normalize:
                     out[0] = inverse_norm(out[0], r.x_mean, r.x_std)
                     y[i,0] = inverse_norm(y[i,0], r.x_mean, r.x_std)
                     out[1] = inverse_norm(out[1], theta.x_mean, theta.x_std)
@@ -171,7 +171,7 @@ def main(argv):
         if my_it == 1245:
             break
 
-    average error over test set
+    #average error over test set
     print(np.mean(results[:,0]), np.mean(results[:,1]))
     print(FLAGS.normalize,'norm')
     
